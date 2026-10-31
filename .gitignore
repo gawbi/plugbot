@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# 별도 git 저장소로 받은 원본(필요한 SO-101 모델만 third_party/robotstudio_so101에 복사해 둠)
+third_party/mujoco_menagerie/
+# 사진(촬영 위치 등 메타데이터가 남을 수 있음), 기기별 보정 결과
+photos/
+real/config/
+real/print/_sim_*.png
+# Isaac Sim에서 만드는 파일
+isaac/so101/*.usd
+outputs/isaac_video_*
+outputs/isaac_frames_*
