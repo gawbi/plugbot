@@ -32,7 +32,7 @@ CAD = ROOT / "cad/out"
 MENAGERIE = SO101_XML.parent / "assets"
 SUFFIX = {"top": "", "side": "_side"}
 SHOW = {"top": ((0.62, -0.58, 0.36), (0.14, 0.0, -0.01)),  # 발표 영상용 넓은 시점(로봇과 선박이 함께)
-        "side": ((0.58, -0.62, 0.40), (0.20, 0.02, 0.0))}
+        "side": ((0.06, -0.48, 0.30), (0.28, 0.03, 0.02))}  # 로봇 오른쪽 앞: 소켓 앞면과 플러그가 보인다
 WEBCAM = {"top": ((0.36, -0.20, 0.30), (0.24, 0.0, -0.03), 60.0),  # 예선 웹캠 자리(real/sim_world.py top)
           "side": tuple(CAMERAS_SIDE["front"])}
 APERTURE = 20.955  # USD 카메라 가로 조리개(mm). 초점거리 = 조리개 / 2 / tan(수평 화각 / 2)
@@ -259,7 +259,7 @@ def build_scene(layout):
     wpos, wlook, whfov = WEBCAM[layout]
     spos, slook = SHOW[layout]
     for name, pos, look, focal in (("Webcam", wpos, wlook, APERTURE / 2 / np.tan(np.deg2rad(whfov) / 2)),
-                                   ("ShowCam", spos, slook, 24.0)):
+                                   ("ShowCam", spos, slook, 18.0 if layout == "side" else 24.0)):
         cam = UsdGeom.Camera.Define(stage, f"/World/{name}")
         cam.CreateFocalLengthAttr(float(focal))
         cam.CreateHorizontalApertureAttr(APERTURE)

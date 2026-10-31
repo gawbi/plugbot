@@ -33,8 +33,13 @@
    - `--hs 0 --strategy predictive`
    - `--hs 0.06 --strategy predictive`, `--hs 0.06 --strategy reactive`, `--hs 0.06 --strategy static`
    - 여유가 있으면 `--hs 0.04`, `--hs 0.08`도 세 전략
-5. **발표 영상**: `--hs 0.06 --strategy predictive --trials 1 --headless --video`, 같은 조건 `--strategy reactive`도
-   (실패 장면 비교용). 결과 `outputs/isaac_video_side_*_{Webcam,ShowCam,Wrist}.mp4`.
+5. **발표 영상**: `bash isaac/make_showreel.sh`. 같은 파도(시드 2)로 추종과 예측을 찍고, 정지 소켓도 찍은 뒤 묶는다.
+   결과 `outputs/showreel_side_hs6_compare.mp4`(나란히), `_views.mp4`(세 시점), `_compare.gif`(README용).
+   - Isaac에서 시드 2가 '추종 실패, 예측 성공'이 아니면 `SEED=3 bash isaac/make_showreel.sh`처럼 시드를 바꿔 다시 찍는다
+     (각 영상 끝 줄의 성공, 실패를 보고 판단. 최대 다섯 번).
+   - GIF가 나오면 README.md의 'Isaac Sim 5.1' 절 맨 위에 `<img src="outputs/showreel_side_hs6_compare.gif" width="900">`와
+     한 줄 설명(Isaac Sim 실제 렌더, 시드, 결과)을 넣고, 그 아래 MuJoCo 대체 그림 설명은 그대로 둔다.
+   - mp4는 커밋하지 않는다(.gitignore). GIF가 15 MB를 넘으면 `tools/make_showreel.py`의 가로 폭을 720으로 줄여 다시 만든다.
 6. **정리**: `outputs/ISAAC_RESULTS.md`에 표로 쓴다(조건, 성공률, 95% 신뢰구간(Wilson), MuJoCo 결과와 차이, 고친 것, 남은 문제).
    커밋은 아래 규칙대로 하고, `git push`는 사용자에게 물어본 뒤 한다.
 7. (사용자가 원하면) **ACT 학습 데이터**: `--hs 0.06 --dataset 50 --headless` → `data/isaac_side/`.
@@ -74,7 +79,8 @@ top 배치는 `outputs/experiment_top.json`(predictive 6 cm 93%, 8 cm 83%).
 - 글에 가운데점(U+00B7)을 쓰지 않는다. "A와 B" 또는 "A, B"로 쓴다.
 - 커밋 작성자는 김광빈만: 처음에 `git config user.name "김광빈"`, `git config user.email "a30115964@gmail.com"`.
   커밋 메시지에 `Co-Authored-By` 같은 Claude 표시를 넣지 않는다.
-- 영상(mp4), USD 변환 결과는 `.gitignore` 대상이라 커밋하지 않는다. 결과 표(md, json)만 커밋한다.
+- 영상(mp4), USD 변환 결과, 학습 데이터(data/)는 `.gitignore` 대상이라 커밋하지 않는다. 결과 표(md, json), 미리보기 PNG, README용 GIF는 커밋한다.
+- 이 저장소의 주제는 Sim-to-Real 갭 극복이다(README.md). Isaac 결과를 쓸 때 MuJoCo와의 차이를 '물리 엔진 갭'으로 사실대로 적는다.
 - 실패나 미확인 사항을 성공처럼 쓰지 않는다.
 
 ## 그다음(사용자가 요청할 때)

@@ -35,6 +35,7 @@ ap.add_argument("--berth", default="alongside", choices=["alongside", "bow"], he
 ap.add_argument("--hs", type=float, default=0.06, help="모형 유의파고(m), 0이면 정지")
 ap.add_argument("--strategy", default="predictive", choices=["static", "reactive", "predictive"])
 ap.add_argument("--trials", type=int, default=10)
+ap.add_argument("--seed", type=int, default=0, help="첫 시행의 파도 시드(영상 비교 때 전략끼리 같은 파도를 쓰려고)")
 ap.add_argument("--headless", action="store_true")
 ap.add_argument("--video", action="store_true", help="첫 시행을 세 시점으로 녹화해 outputs/isaac_video_*.mp4로 저장")
 ap.add_argument("--video-fps", type=int, default=25)
@@ -325,13 +326,13 @@ def main():
         app.close()
         return
     rows = []
-    for k in range(args.trials):
-        video = VideoOut(f"{args.layout}_hs{args.hs * 100:.0f}_{args.strategy}") if (args.video and k == 0) else None
+    for k in range(args.seed, args.seed + args.trials):
+        video = VideoOut(f"{args.layout}_hs{args.hs * 100:.0f}_{args.strategy}") if (args.video and k == args.seed) else None
         ok, why, t_ins = run_trial(motion_for(args.hs, k), args.strategy, seed=k, video=video)
         if video is not None:
             video.close()
         rows.append({"시드": k, "성공": ok, "이유": why, "삽입 시각 s": t_ins})
-        print(f"[{k + 1}/{args.trials}] {'성공' if ok else '실패'} {why}")
+        print(f"[{k - args.seed + 1}/{args.trials}] 시드 {k} {'성공' if ok else '실패'} {why}")
     rate = float(np.mean([r["성공"] for r in rows]))
     ref = mujoco_reference()
     ref_txt = "" if ref is None else f" (MuJoCo 같은 조건 30회: {ref * 100:.0f}%)"

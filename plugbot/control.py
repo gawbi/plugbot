@@ -39,6 +39,8 @@ class Params:
     force_limit: float = 20.0  # 유지 중 접촉력 95백분위 한계(N), 커넥터와 소켓 보호 기준(가정)
     ar_order: int = 6
     ar_window: float = 3.0
+    # Sim-to-Real 시험용: 카메라→로봇 보정이 틀린 만큼 소켓 관측에 늘 더해지는 오차(m, 월드 좌표). 실물 보정 RMS에 해당
+    calib_bias: tuple = (0.0, 0.0, 0.0)
 
 
 # ---------- IK ----------
@@ -169,7 +171,8 @@ class SocketEstimator:
 
     def capture(self, t, entrance, axis):
         if t + 1e-9 >= self.next_cam:
-            self.obs.append((t, entrance + self.rng.normal(0, self.p.noise, 3), axis.copy()))
+            meas = entrance + np.asarray(self.p.calib_bias) + self.rng.normal(0, self.p.noise, 3)
+            self.obs.append((t, meas, axis.copy()))
             self.next_cam += 1.0 / self.p.cam_hz
 
     def available(self, t):

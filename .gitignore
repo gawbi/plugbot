@@ -15,3 +15,4 @@ outputs/isaac_frames_*
 outputs/_layout_chart.png
 # 학습 데이터(에피소드 영상)
 data/
+outputs/showreel_*.mp4
