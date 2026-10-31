@@ -1,0 +1,16 @@
+Hs=0cm (실선 약 0.0 m)    static     성공 100.0%  F p95     0.0 N
+Hs=0cm (실선 약 0.0 m)    reactive   성공 100.0%  F p95     0.0 N
+Hs=0cm (실선 약 0.0 m)    predictive 성공 100.0%  F p95     0.0 N
+Hs=2cm (실선 약 0.2 m)    static     성공 100.0%  F p95    20.5 N
+Hs=2cm (실선 약 0.2 m)    reactive   성공 100.0%  F p95    13.3 N
+Hs=2cm (실선 약 0.2 m)    predictive 성공 100.0%  F p95    15.1 N
+Hs=4cm (실선 약 0.4 m)    static     성공  90.0%  F p95    40.7 N
+Hs=4cm (실선 약 0.4 m)    reactive   성공  90.0%  F p95    32.1 N
+Hs=4cm (실선 약 0.4 m)    predictive 성공 100.0%  F p95    24.5 N
+Hs=6cm (실선 약 0.6 m)    static     성공  40.0%  F p95   182.6 N
+Hs=6cm (실선 약 0.6 m)    reactive   성공  63.3%  F p95   264.9 N
+Hs=6cm (실선 약 0.6 m)    predictive 성공  93.3%  F p95    32.7 N
+Hs=8cm (실선 약 0.8 m)    static     성공  16.7%  F p95   547.2 N
+Hs=8cm (실선 약 0.8 m)    reactive   성공  13.3%  F p95   674.9 N
+Hs=8cm (실선 약 0.8 m)    predictive 성공  83.3%  F p95    33.3 N
+완료 78.3 s

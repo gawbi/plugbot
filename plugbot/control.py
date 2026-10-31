@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import mujoco
 import numpy as np
 
-from .scene import BORE_R, BORE_TOP, PIN_R, SOCKET_H, Scene
+from .scene import BORE_R, BORE_TOP, PIN_R, SIDE_AXIS, SIDE_ENTRANCE, SOCKET_H, Scene
 
 HOME = np.array([0.0, -1.5, -0.29, 1.6, 0.0])
 CONTROL_DT = 0.02
@@ -34,9 +34,9 @@ class Params:
     timeout: float = 12.0
     hold: float = 0.2  # 목표 깊이를 이 시간 이상 유지하면 삽입 성공
     # 삽입 후 연결 유지 시험 시간. 기본 0: 실제 자동 연결 장치처럼 소켓 래치가 플러그를 잡고 로봇은 놓는다고 가정한다.
-    # 로봇이 계속 쥐고 있으면(예: 4초) 위치 제어 팔은 선체 운동을 못 따라가 과부하·이탈이 난다(실험으로 확인).
+    # 로봇이 계속 쥐고 있으면(예: 4초) 위치 제어 팔은 선체 운동을 못 따라가 과부하, 이탈이 난다(실험으로 확인).
     keep: float = 0.0
-    force_limit: float = 20.0  # 유지 중 접촉력 95백분위 한계(N), 커넥터·소켓 보호 기준(가정)
+    force_limit: float = 20.0  # 유지 중 접촉력 95백분위 한계(N), 커넥터와 소켓 보호 기준(가정)
     ar_order: int = 6
     ar_window: float = 3.0
 
@@ -55,6 +55,8 @@ class IK:
         self.jacr = np.zeros((3, scene.model.nv))
 
     def solve(self, q0, target, tool_dir, iters=40, k_dir=0.6, lam=0.01):
+        if self.s.layout == "side":
+            return self._solve_full(q0, target, tool_dir, iters, lam)
         s, d = self.s, self.data
         q = q0.copy()
         eye = np.eye(len(q))
@@ -64,7 +66,7 @@ class IK:
             mujoco.mj_kinematics(s.model, d)
             mujoco.mj_comPos(s.model, d)
             e_p = target - d.site_xpos[s.tip_site]
-            axis = -d.xmat[s.gripper_body].reshape(3, 3)[:, 2]
+            axis = d.xmat[s.gripper_body].reshape(3, 3) @ s.pin_axis  # 핀 방향(일자: 그리퍼 -z, L자: 그리퍼 -y)
             e_o = np.cross(axis, tool_dir)
             mujoco.mj_jacSite(s.model, d, self.jacp, self.jacr, s.tip_site)
             Jp, Jo = self.jacp[:, s.dadr], self.jacr[:, s.dadr]
@@ -74,6 +76,69 @@ class IK:
             if np.linalg.norm(e_p) < 2e-4 and np.linalg.norm(dq) < 1e-4:
                 break
         return q
+
+
+def home_pose(scene: Scene, back=0.04, n=40, seed=0):
+    """side 배치의 시작 자세: 정지 소켓 입구 앞 back(m)에서 핀이 소켓 축과 나란한 자세.
+
+    관절 한계 안 무작위 시작점 n개에서 최적화하고, 로봇이 자기 몸이나 환경과 부딪히지 않는 해 가운데 가장 좋은 것을 쓴다
+    (단순 IK는 손목 회전 갈래를 놓친다). 한 번 구해 둔다.
+    """
+    if scene.home is not None:
+        return scene.home
+    from scipy.optimize import least_squares
+    s, d = scene, mujoco.MjData(scene.model)
+    if s.mode == "ship":
+        d.mocap_pos[s.mocap] = s.ship_home
+        d.mocap_quat[s.mocap] = [1, 0, 0, 0]
+    mujoco.mj_kinematics(s.model, d)
+    ent, ax = (SIDE_ENTRANCE, SIDE_AXIS)
+    target, tool = ent + ax * back, -ax
+
+    def resid(q):
+        d.qpos[s.qadr] = q
+        mujoco.mj_kinematics(s.model, d)
+        R = d.xmat[s.gripper_body].reshape(3, 3)
+        return np.concatenate([(d.site_xpos[s.tip_site] - target) * 1000, (R @ s.pin_axis - tool) * 50])
+
+    def collides(q):
+        d.qpos[s.qadr] = q
+        mujoco.mj_forward(s.model, d)
+        return any(d.contact[i].dist < 0 and (d.contact[i].geom1 in s.robot_geoms or d.contact[i].geom2 in s.robot_geoms)
+                   for i in range(d.ncon))
+
+    rng = np.random.default_rng(seed)
+    sols = sorted((least_squares(resid, rng.uniform(s.qlo, s.qhi), bounds=(s.qlo, s.qhi)) for _ in range(n)),
+                  key=lambda r: r.cost)
+    best = next((r for r in sols if r.cost < 1e-3 and not collides(r.x)), sols[0])
+    scene.home = best.x
+    return best.x
+
+
+def _solve_full_impl(self, q0, target, tool_dir, iters, lam, w_dir=0.05):
+    """side 배치: 위치와 핀 방향을 함께 맞춘다(감쇠 최소제곱). 5축으로 수평 자세를 만들면 남는 자유도가 없어서,
+    위치를 먼저 맞추고 방향을 남는 자유도로 맞추는 방식(top 배치)은 방향이 크게 틀어진다."""
+    s, d = self.s, self.data
+    q = q0.copy()
+    for _ in range(iters):
+        d.qpos[:] = 0
+        d.qpos[s.qadr] = q
+        mujoco.mj_kinematics(s.model, d)
+        mujoco.mj_comPos(s.model, d)
+        e_p = target - d.site_xpos[s.tip_site]
+        axis = d.xmat[s.gripper_body].reshape(3, 3) @ s.pin_axis
+        e_o = np.cross(axis, tool_dir)
+        mujoco.mj_jacSite(s.model, d, self.jacp, self.jacr, s.tip_site)
+        J = np.vstack([self.jacp[:, s.dadr], w_dir * self.jacr[:, s.dadr]])
+        e = np.concatenate([e_p, w_dir * e_o])
+        dq = _dpinv(J, lam) @ e
+        q = np.clip(q + np.clip(dq, -0.2, 0.2), s.qlo, s.qhi)
+        if np.linalg.norm(e_p) < 2e-4 and np.linalg.norm(dq) < 1e-4:
+            break
+    return q
+
+
+IK._solve_full = _solve_full_impl
 
 
 # ---------- 소켓 추정 ----------
@@ -111,7 +176,7 @@ class SocketEstimator:
         return [o for o in self.obs if o[0] <= t - self.p.latency]
 
     def estimate(self, t):
-        """(예측 입구 위치, 축, 예측 상하·좌우 속도 크기). 관측이 아직 없으면 None."""
+        """(예측 입구 위치, 축, 예측 상하, 좌우 속도 크기). 관측이 아직 없으면 None."""
         av = self.available(t)
         if not av:
             return None
@@ -147,9 +212,9 @@ class Trial:
 
 
 def contacts(scene: Scene):
-    """(로봇 몸체-환경 충돌 여부, 플러그-선체 접촉 여부, 플러그-소켓 접촉력 합)"""
+    """(로봇 몸체 충돌: None | "socket"(그리퍼가 소켓에 닿음) | "env"(선체, 부두 등), 플러그-선체 접촉 여부, 플러그-소켓 접촉력 합)"""
     m, d = scene.model, scene.data
-    body_hit, plug_hull, force = False, False, 0.0
+    body_hit, plug_hull, force = None, False, 0.0
     f6 = np.zeros(6)
     for i in range(d.ncon):
         c = d.contact[i]
@@ -164,17 +229,18 @@ def contacts(scene: Scene):
                 force += abs(f6[0])
             else:
                 plug_hull = True
-        else:
-            body_hit = True
+        elif body_hit != "env":
+            body_hit = "socket" if g2 in scene.socket_geoms else "env"
     return body_hit, plug_hull, force
 
 
-def run_trial(scene: Scene, strategy, motion=None, p: Params = Params(), seed=0, record=None):
+def run_trial(scene: Scene, strategy, motion=None, p: Params = Params(), seed=0, record=None, on_step=None):
     m, d = scene.model, scene.data
     rng = np.random.default_rng(seed)
     mujoco.mj_resetData(m, d)
-    d.qpos[scene.qadr] = HOME
-    d.ctrl[scene.act] = HOME
+    home = HOME if scene.layout == "top" else home_pose(scene)
+    d.qpos[scene.qadr] = home
+    d.ctrl[scene.act] = home
     d.ctrl[scene.grip_act] = 0.0
     if scene.mode == "ship":
         scene.set_ship(*motion(0.0))
@@ -214,6 +280,8 @@ def run_trial(scene: Scene, strategy, motion=None, p: Params = Params(), seed=0,
                 scene.set_ship(*motion(t))
             mujoco.mj_step(m, d)
             t += m.opt.timestep
+        if on_step is not None:  # 학습 데이터 녹화용(제어 주기마다 한 번, 물리에는 영향 없음)
+            on_step(t, phase)
 
         body_hit, plug_hull, force = contacts(scene)
         tr.forces.append(force)
@@ -225,7 +293,7 @@ def run_trial(scene: Scene, strategy, motion=None, p: Params = Params(), seed=0,
         if record is not None:
             record.append((t, d.qpos.copy(), d.mocap_pos.copy(), d.mocap_quat.copy(), phase, depth, lateral, force))
         if body_hit:
-            tr.reason = "로봇 몸체 충돌"
+            tr.reason = "그리퍼가 소켓 테두리에 닿음" if body_hit == "socket" else "로봇 몸체 충돌"
             break
         if plug_hull:
             tr.reason = "플러그가 소켓 밖 선체에 부딪힘"
@@ -250,7 +318,7 @@ def run_trial(scene: Scene, strategy, motion=None, p: Params = Params(), seed=0,
             tr.held = tr.f_hold_p95 <= p.force_limit
             tr.reason = "" if tr.held else "유지 중 과부하"
         else:
-            tr.reason = "시간 초과(걸림·정렬 실패)"
+            tr.reason = "시간 초과(걸림, 정렬 실패)"
     tr.f_insert_p95 = float(np.percentile(f_ins, 95)) if f_ins else 0.0
     if tr.inserted and not tr.f_hold_p95 and f_keep:
         tr.f_hold_p95 = float(np.percentile(f_keep, 95))

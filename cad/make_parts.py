@@ -1,11 +1,14 @@
 """축소 시연 키트 CAD (CadQuery). 단위 mm.
 
-부품(cad/out/에 STEP·STL):
+부품(cad/out/에 STEP, STL):
 - plug: 그리퍼가 쥐는 플러그. 핀 Ø12, 끝 모따기 2 mm, 그리퍼 턱 홈, 핀 끝 자석 포켓(Ø6×3)
 - socket: 깔때기 소켓. 입구 Ø36 → 보어 Ø15(반경 여유 1.5 mm), 45° 원뿔, 바닥 자석 포켓(래치 역할),
   ArUco 마커 탭(25 mm 마커용 30×30 홈), M4 장착 구멍 4개(피치 54)
-- deck: 흔들림 갑판. 베이스 + 힌지 블록(M5 축) + 갑판판(소켓 장착) + 레버(손·서보 링크용 구멍 5개)
-- car_port: 자동차 충전구 블록. 45° 경사면에 같은 소켓 장착
+- deck: 흔들림 갑판. 베이스 + 힌지 블록(M5 축) + 갑판판(소켓 장착) + 레버(손이나 서보 링크용 구멍 5개)
+- car_port: 자동차 충전구 블록. 45° 경사면에 같은 소켓 장착(top 배치)
+- plug_L: L자 플러그(본선 side 배치). 그리퍼가 쥐는 몸통에서 핀이 옆으로 나온다(충전건 모양)
+- side_mount: 소켓을 세워 붙이는 판. 갑판판의 소켓 구멍 4개에 그대로 볼트로 고정한다
+- car_port_side: 자동차용 세운 충전구. side_mount를 갑판판 높이(45 mm) 받침 위에 올린 것
 - assembly.step: 갑판 위 소켓, 꽂힌 플러그, 자동차 충전구 블록 조립본
 충돌 계산용 소켓 조각(socket_wall_XX.stl, socket_cap.stl)은 시뮬레이션이 쓴다.
 STEP은 솔리드웍스에서 열리고, STL은 3D 프린트용이다.
@@ -22,11 +25,11 @@ PIN_R, PIN_L, PIN_CHAMFER = 6.0, 40.0, 2.0
 BODY = (16.0, 18.0, 30.0)
 MAGNET_D, MAGNET_H = 6.2, 3.2  # Ø6×3 네오디뮴 자석 + 끼움 여유
 
-# 소켓: 포착 반경 = 원뿔 입구 반지름 - 핀 반지름 = 12 mm
-BORE_R, BORE_D = 7.5, 25.0
-CONE_TOP_R = 18.0
+# 소켓: 포착 반경 = 원뿔 입구 반지름 - 핀 반지름 = 19 mm, 반경 여유 2 mm(본선용으로 키움. 예선 때는 12 mm, 1.5 mm)
+BORE_R, BORE_D = 8.0, 25.0
+CONE_TOP_R = 25.0
 CONE_H = CONE_TOP_R - BORE_R
-OUTER_R = 24.0
+OUTER_R = 31.0
 CAP_T = 4.0
 SOCKET_H = CAP_T + BORE_D + CONE_H
 FLANGE = (70.0, 70.0, 4.0)
@@ -71,9 +74,53 @@ def socket():
     return flange.cut(holes).cut(marker).union(socket_cap()).union(socket_wall()).cut(magnet)
 
 
+# L자 플러그(plugbot/scene.py L_BODY, L_REACH와 같은 치수). 몸통 좌표: x는 그리퍼 턱이 닫히는 방향(양옆 면을 문다),
+# 핀은 -y로 나가고 핀 축은 몸통 중심보다 10 mm 아래, 핀 끝은 몸통 중심에서 65 mm
+L_REACH, L_PIN_DROP = 65.0, 10.0
+
+
+def plug_l():
+    body = cq.Workplane("XY").box(*BODY).edges("|Y").fillet(2.0)
+    pin_len = L_REACH - BODY[1] / 2 + 2.0  # 몸통 안쪽 2 mm부터
+    pin = cq.Workplane("XY").circle(PIN_R).extrude(pin_len).faces(">Z").chamfer(PIN_CHAMFER)
+    pin = pin.cut(cq.Workplane("XY").circle(MAGNET_D / 2).extrude(MAGNET_H).translate((0, 0, pin_len - MAGNET_H)))
+    # +z로 만든 핀을 x축으로 90° 돌려 -y로 보낸다
+    pin = pin.rotate((0, 0, 0), (1, 0, 0), 90).translate((0, -(BODY[1] / 2 - 2.0), -L_PIN_DROP))
+    # 그리퍼 턱 자리: 양옆(±x) 면 위쪽에 얕은 세로 홈(폭 10, 깊이 1, 길이 18)
+    groove = cq.Workplane("XY").box(2.0, 10.0, 18.0).translate((BODY[0] / 2, 0, BODY[2] / 2 - 9.0))
+    return body.union(pin).cut(groove).cut(groove.mirror("YZ"))
+
+
+# 세운 판(side_mount) 좌표: 원점은 발판 바닥, 판 앞면(소켓이 붙는 면) 아래 가운데. 앞면은 -y(로봇 쪽)를 본다.
+# 발판 구멍 4개 = 갑판판 소켓 구멍(피치 54, 갑판 좌표 (0, 15) 중심)이라 판 앞면이 그 중심선에 온다
+PANEL = (170.0, 6.0, 125.0)  # 폭, 두께, 높이(발판 바닥부터)
+SIDE_SOCKET_Z = 85.0  # 발판 바닥에서 소켓 중심까지. 갑판판 윗면(책상 위 45) + 85 = 로봇 베이스(받침 100) + 30
+FOOT = (100.0, 80.0, 6.0)
+
+
+def side_mount(riser=0.0):
+    """riser > 0이면 그 높이의 속 빈 받침 위에 올린다(자동차용, 책상 위에 바로 놓음)."""
+    panel = cq.Workplane("XY").box(*PANEL).translate((0, PANEL[1] / 2, PANEL[2] / 2)).edges("|Y").fillet(5.0)
+    foot = cq.Workplane("XY").box(*FOOT).translate((0, 0, FOOT[2] / 2)).edges("|Z").fillet(4.0)
+    rib = (cq.Workplane("YZ").polyline([(PANEL[1], FOOT[2]), (FOOT[1] / 2, FOOT[2]), (PANEL[1], 70.0)]).close()
+           .extrude(6.0).translate((-3.0, 0, 0)))
+    part = panel.union(foot).union(rib.translate((-44, 0, 0))).union(rib.translate((44, 0, 0)))
+    # 발판 구멍(세로): 앞쪽 2개는 판 앞, 뒤쪽 2개는 판 뒤
+    part = part.cut(cq.Workplane("XY").rect(HOLE_PITCH, HOLE_PITCH, forConstruction=True).vertices()
+                    .circle(HOLE_D / 2).extrude(FOOT[2]))
+    # 소켓 플랜지 구멍(가로, 판을 관통)
+    part = part.cut(cq.Workplane("XZ").center(0, SIDE_SOCKET_Z).rect(HOLE_PITCH, HOLE_PITCH, forConstruction=True)
+                    .vertices().circle(HOLE_D / 2).extrude(-PANEL[1] - 1).translate((0, -0.5, 0)))
+    if riser > 0:
+        box = (cq.Workplane("XY").box(FOOT[0], FOOT[1], riser).translate((0, 0, riser / 2)).edges("|Z").fillet(4.0)
+               .faces("<Z").shell(-3.0))
+        part = part.translate((0, 0, riser)).union(box)
+    return part
+
+
 HINGE_Y, HINGE_Z = -50.0, 26.0  # 힌지 축: x 방향, 갑판 한쪽 가장자리
 DECK_TOP = 45.0
-SOCKET_ON_DECK = (0.0, 15.0)  # 힌지 축에서 65 mm 떨어져 레버를 들면 상하·좌우로 움직인다
+SOCKET_ON_DECK = (0.0, 15.0)  # 힌지 축에서 65 mm 떨어져 레버를 들면 상하, 좌우로 움직인다
 
 
 def _x_hole(part, y, z, d):
@@ -84,7 +131,7 @@ def _x_hole(part, y, z, d):
 def deck():
     """흔들림 갑판: 베이스 + 힌지 블록 2개 + 갑판판(러그 2개) + 레버. 힌지 축은 M5 봉 하나(길이 160 mm 이상).
 
-    레버 끝을 손이나 서보 링크로 올리면 갑판이 힌지 축을 중심으로 기울어, 소켓이 상하·좌우로 움직인다.
+    레버 끝을 손이나 서보 링크로 올리면 갑판이 힌지 축을 중심으로 기울어, 소켓이 상하, 좌우로 움직인다.
     """
     base = cq.Workplane("XY").box(220, 150, 6).translate((0, 0, 3)).edges("|Z").fillet(6)
     base = base.cut(cq.Workplane("XY").rect(196, 126, forConstruction=True).vertices().circle(2.6).extrude(6))
@@ -133,7 +180,8 @@ if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
     deck_base, deck_plate = deck()
     parts = {"plug": plug(), "socket": socket(), "deck_base": deck_base, "deck_plate": deck_plate,
-             "car_port": car_port()}
+             "car_port": car_port(), "plug_L": plug_l(), "side_mount": side_mount(),
+             "car_port_side": side_mount(riser=DECK_TOP)}
     for name, part in parts.items():
         cq.exporters.export(part, str(OUT / f"{name}.step"))
         cq.exporters.export(part, str(OUT / f"{name}.stl"), tolerance=0.05, angularTolerance=0.1)

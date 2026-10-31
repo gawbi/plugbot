@@ -5,7 +5,7 @@
     wait_until(t)                   tip_position() -> 핀 끝(로봇 베이스 좌표, m)
 
 RealRobot은 LeRobot 0.6.1의 SO-101 팔로워를 감싼다. LeRobot 관절값(use_degrees=True면 도)과
-MuJoCo 모델 관절각 사이의 부호·영점은 config/joint_map.json으로 맞춘다. 처음 연결하면 반드시
+MuJoCo 모델 관절각 사이의 부호와 영점은 config/joint_map.json으로 맞춘다. 처음 연결하면 반드시
 `python -m real.robots check --port ...`로 실물 자세와 화면 속 모델 자세가 같은지 확인한다.
 """
 
@@ -17,8 +17,10 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
-from plugbot.control import IK
+from plugbot.control import HOME, IK, home_pose
 from plugbot.scene import ARM_JOINTS, Scene
+
+from . import geometry as G
 
 CONFIG = Path(__file__).resolve().parent / "config"
 DEFAULT_MAP = {
@@ -31,12 +33,20 @@ DEFAULT_MAP = {
 
 
 class Kinematics:
-    """MuJoCo SO-101 모델(플러그를 쥔 상태)로 순·역기구학만 계산한다."""
+    """MuJoCo SO-101 모델(플러그를 쥔 상태)로 순기구학과 역기구학만 계산한다. 플러그 모양은 배치(G.LAYOUT)를 따른다."""
 
     def __init__(self):
-        self.scene = Scene("car")  # 장면 종류와 무관하게 팔과 플러그 끝 위치만 쓴다
+        self.scene = Scene("car", G.LAYOUT)  # 자동차 장면이지만 팔과 플러그 끝 위치만 쓴다
         self.ik = IK(self.scene)
         self._d = mujoco.MjData(self.scene.model)
+        self.home = HOME if G.LAYOUT == "top" else home_pose(self.scene)  # 시행 시작 자세(선박 소켓 앞)
+
+    def home_for(self, target="ship"):
+        """자동차 충전구는 선박 소켓을 로봇 둘레로 CAR_PORT_ANGLE만큼 돌린 자리라 어깨 회전만 더한다(side 배치)."""
+        q = self.home.copy()
+        if target == "car" and G.LAYOUT == "side":
+            q[0] -= G.CAR_PORT_ANGLE  # 어깨 회전은 양의 각도가 로봇 오른쪽(-y)
+        return q
 
     def tip(self, q):
         s, d = self.scene, self._d

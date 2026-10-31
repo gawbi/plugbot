@@ -18,7 +18,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from plugbot.scene import N_SEG, PLUG_TIP, SHIP_HOME, SOCKET_ON_SHIP  # noqa: E402
+from plugbot.scene import N_SEG, PLUG_TIP, SHIP_HOME, SOCKET_H, SOCKET_ON_SHIP  # noqa: E402
 
 ISAAC = ROOT / "isaac"
 CAD = ROOT / "cad/out"
@@ -176,8 +176,8 @@ def check_scene(path):
     top = bb.GetMax()[2]
     n_col = sum(1 for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI))
     kin = UsdPhysics.RigidBodyAPI(stage.GetPrimAtPath("/World/Ship")).GetKinematicEnabledAttr().Get()
-    print(f"소켓 크기 {size[0] * 1000:.1f} × {size[1] * 1000:.1f} × {size[2] * 1000:.1f} mm(기대 110 × 70 × 39.5), "
-          f"입구 높이 {top:.4f} m(기대 {SHIP_HOME[2] + 0.0395:.4f}), 충돌체 {n_col}개, 선박 키네마틱 {kin}")
+    print(f"소켓 크기 {size[0] * 1000:.1f} × {size[1] * 1000:.1f} × {size[2] * 1000:.1f} mm(기대 110 × 70 × {SOCKET_H * 1000:.1f}), "
+          f"입구 높이 {top:.4f} m(기대 {SHIP_HOME[2] + SOCKET_H:.4f}), 충돌체 {n_col}개, 선박 키네마틱 {kin}")
 
 
 if __name__ == "__main__":

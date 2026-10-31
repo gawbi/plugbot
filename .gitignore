@@ -12,3 +12,4 @@ real/print/_sim_*.png
 isaac/so101/*.usd
 outputs/isaac_video_*
 outputs/isaac_frames_*
+outputs/_layout_chart.png

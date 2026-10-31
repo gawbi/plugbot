@@ -80,12 +80,12 @@ def main():
     ap.add_argument("--port", required=True)
     ap.add_argument("--cam", type=int, default=0)
     a = ap.parse_args()
-    intr = Intrinsics.load() if (CONFIG / "camera.json").exists() else Intrinsics.from_fov(640, 480)
+    intr = Intrinsics.load() if (CONFIG / "camera.json").exists() else Intrinsics.from_fov()
     tracker, cam, robot = SocketTracker(intr), Camera(a.cam), RealRobot(a.port)
     robot.torque(False)
     pairs = []
     print("토크를 껐다. 팔을 손으로 움직여 플러그를 깔때기에 끝까지 꽂고(자석이 붙게) 손을 뗀 뒤 Enter.")
-    print("갑판 위치·기울기를 바꿔 4~6번 반복. 끝내려면 q + Enter.")
+    print("갑판 위치와 기울기를 바꿔 4~6번 반복. 끝내려면 q + Enter.")
     try:
         while True:
             if input(f"[{len(pairs)}쌍] Enter=기록, q=계산: ").strip().lower() == "q":

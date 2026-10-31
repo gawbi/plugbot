@@ -1,4 +1,4 @@
-"""시뮬레이션 장면·비교 GIF·CAD 렌더.
+"""시뮬레이션 장면, 비교 GIF, CAD 렌더.
 
 실행: .venv/bin/python render_demo.py
 결과(outputs/): sim_ship.png, sim_car.png, compare_hs6.gif, cad_parts.png, cad_kit.png
@@ -70,7 +70,7 @@ def sim_stills():
     i = max(0, len(rec) - 12)
     replay_frame(ship, rec[i])
     r.update_scene(ship.data, camera([0.16, 0.0, 0.0], 0.68, 150, -22))
-    label(r.render(), "해상 · 흔들리는 갑판 소켓에 삽입", "모형 유의파고 6 cm · AR 예측 + 정온 구간 삽입").save(OUT / "sim_ship.png")
+    label(r.render(), "해상, 흔들리는 갑판 소켓에 삽입", "모형 유의파고 6 cm, AR 예측 + 정온 구간 삽입").save(OUT / "sim_ship.png")
     r.close()
 
     car = Scene("car")
@@ -79,7 +79,7 @@ def sim_stills():
     r = mujoco.Renderer(car.model, 760, 1000)
     replay_frame(car, rec[max(0, len(rec) - 12)])
     r.update_scene(car.data, camera([0.17, 0.0, 0.05], 0.68, 150, -18))
-    label(r.render(), "육상 · 전기차 45° 충전구에 삽입", "같은 로봇 · 같은 소켓 규격 · 정지 소켓 15/15 성공").save(OUT / "sim_car.png")
+    label(r.render(), "육상, 전기차 45° 충전구에 삽입", "같은 로봇, 같은 소켓 규격, 정지 소켓 15/15 성공").save(OUT / "sim_car.png")
     r.close()
 
 
@@ -163,7 +163,7 @@ def cad_parts():
     for txt, xy in (("플러그 (핀 Ø12, 자석 포켓)", (250, 160)), ("깔때기 소켓 (입구 Ø36 → 보어 Ø15)", (560, 110)),
                     ("자동차 충전구 블록 (45°)", (1080, 130)), ("흔들림 갑판 베이스", (200, 800)), ("흔들림 갑판판 + 레버", (900, 900))):
         dr.text(xy, txt, font=font(30, True), fill=(30, 30, 30))
-    label(img, "3D 프린트 부품 (PLA · STEP/STL 제공)", "cad/out: plug · socket · car_port · deck_base · deck_plate").save(OUT / "cad_parts.png")
+    label(img, "3D 프린트 부품 (PLA, STEP/STL 제공)", "cad/out: plug, socket, car_port, deck_base, deck_plate").save(OUT / "cad_parts.png")
 
 
 def cad_kit():
@@ -207,7 +207,7 @@ def cad_kit():
     mujoco.mj_forward(m, d)
     r = mujoco.Renderer(m, 1100, 1500)
     r.update_scene(d, camera([0.13, 0.0, -0.04], 0.75, 145, -26))
-    label(r.render(), "실물 시연 키트 조립도", "SO-101(높이 100 mm 받침=부두) · 흔들림 갑판 · 깔때기 소켓 · ArUco 마커 · 웹캠").save(OUT / "cad_kit.png")
+    label(r.render(), "실물 시연 키트 조립도", "SO-101(높이 100 mm 받침=부두), 흔들림 갑판, 깔때기 소켓, ArUco 마커, 웹캠").save(OUT / "cad_kit.png")
 
 
 if __name__ == "__main__":

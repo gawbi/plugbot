@@ -1,7 +1,8 @@
 """실물 없이 실물용 소프트웨어 전체(웹캠 영상 → 마커 추적 → 보정 변환 → 예측 → IK → 팔)를 시험하는 MuJoCo 세계.
 
-- 소켓 탭 홈에 실제 인쇄용과 같은 ArUco 마커(30 mm 흰 종이 위 25 mm 마커)를 붙인다.
-- 웹캠 위치에 카메라를 두고 30 Hz로 렌더링한다. 렌더링한 영상은 latency 뒤에야 쓸 수 있다(실물 웹캠 지연 흉내).
+- 소켓 탭 홈에 실제 인쇄용과 같은 ArUco 마커(30 mm 흰 종이 위 25 mm 마커)를 붙이고, 배치(G.LAYOUT)에 따라
+  갑판 시트(top) 또는 세운 판 앞면(side)에 30 mm 마커 4개를 붙인다.
+- 웹캠 위치에 카메라를 두고 30 Hz로 렌더링한다. side는 로봇 받침 옆 셀카봉의 앞 카메라(1280 × 720, 화각 60°). 렌더링한 영상은 latency 뒤에야 쓸 수 있다(실물 웹캠 지연 흉내).
 - SimRobot은 robots.RealRobot과 같은 인터페이스다. 팔은 위치 제어 서보(모델의 액추에이터)로 움직인다.
 """
 
@@ -10,7 +11,7 @@ import mujoco
 import numpy as np
 
 from plugbot.control import CONTROL_DT
-from plugbot.scene import SHIP_HOME, SOCKET_ON_SHIP, Scene
+from plugbot.scene import CAMERAS_SIDE, SIDE_QUAT, SOCKET_ON_SHIP, SOCKET_SIDE_ON_SHIP, Scene
 
 from . import geometry as G
 from .markers import marker_image
@@ -18,9 +19,14 @@ from .robots import Kinematics
 from .vision import Intrinsics
 
 TEX = G.__file__.replace("geometry.py", "print/_sim_socket_marker.png")
-CAM_POS = np.array([0.36, -0.20, 0.30])  # 웹캠: 선박 바깥쪽 위에서 소켓을 비스듬히 내려다본다
-CAM_LOOK = np.array([0.24, 0.0, -0.03])
-W, H, FOVY = 640, 480, 50.0
+if G.LAYOUT == "top":
+    CAM_POS = np.array([0.36, -0.20, 0.30])  # 웹캠: 선박 바깥쪽 위에서 소켓을 비스듬히 내려다본다
+    CAM_LOOK = np.array([0.24, 0.0, -0.03])
+    W, H, FOVY = 640, 480, 50.0
+else:
+    CAM_POS, CAM_LOOK, _hfov = CAMERAS_SIDE["front"]
+    W, H = 1280, 720
+    FOVY = float(np.rad2deg(2 * np.arctan(np.tan(np.deg2rad(_hfov) / 2) * H / W)))
 
 
 def _marker_texture(mid, margin_px, path):
@@ -44,8 +50,15 @@ class MarkerScene(Scene):
         super()._add_world(spec)
         # (id, 마커 한 변, 종이 한 변, 소켓 좌표계 중심): 탭 마커는 30 mm 종이 위 25 mm, 갑판 마커는 36 mm 종이 위 30 mm
         papers = [(G.SOCKET_MARKER_ID, 0.025, 0.030, G.MARKER_IN_SOCKET + [0, 0, 0.0002])]
-        papers += [(mid, 0.030, 0.036, np.array([x, y, 0.4]) * G.MM) for mid, (x, y) in G.DECK_MARKERS.items()]
+        papers += [(mid, 0.030, 0.036, np.array([x, y, 0.4]) * G.MM) for mid, (x, y) in G.BOARD_MARKERS.items()]
         ship = spec.body("ship") if self.mode == "ship" else None
+        if self.layout == "top":
+            base, quat = SOCKET_ON_SHIP, np.array([1.0, 0, 0, 0])
+        else:
+            base, quat = SOCKET_SIDE_ON_SHIP, SIDE_QUAT
+        R = np.zeros(9)
+        mujoco.mju_quat2Mat(R, quat)
+        R = R.reshape(3, 3)
         for mid, size, paper_size, center in papers:
             path = TEX.replace("_sim_socket_marker", f"_sim_marker_{mid}")
             _marker_texture(mid, round(300 * (paper_size / size - 1) / 2), path)
@@ -57,7 +70,8 @@ class MarkerScene(Scene):
                           inertia=mujoco.mjtMeshInertia.mjMESH_INERTIA_SHELL)
             if ship is not None:
                 ship.add_geom(name=f"aruco{mid}", type=mujoco.mjtGeom.mjGEOM_MESH, meshname=f"aruco_quad{mid}",
-                              material=f"aruco{mid}", pos=SOCKET_ON_SHIP + center, contype=0, conaffinity=0, group=1)
+                              material=f"aruco{mid}", pos=base + R @ center, quat=quat, contype=0, conaffinity=0,
+                              group=1)
         spec.worldbody.add_camera(name="webcam", pos=CAM_POS, xyaxes=_xyaxes(CAM_POS, CAM_LOOK), fovy=FOVY)
 
 
@@ -70,7 +84,7 @@ class SimWorld:
     """가짜 로봇 + 가짜 웹캠. motion(t) -> (변위, roll, pitch)가 None이면 선박이 정지해 있다."""
 
     def __init__(self, motion=None, latency=0.10, cam_hz=30.0, seed=0):
-        self.scene = MarkerScene("ship")
+        self.scene = MarkerScene("ship", G.LAYOUT)
         self.m, self.d = self.scene.model, self.scene.data
         self.motion = motion or (lambda t: (np.zeros(3), 0.0, 0.0))
         self.latency, self.cam_dt = latency, 1.0 / cam_hz
@@ -82,9 +96,8 @@ class SimWorld:
 
     # ----- 세계 -----
     def reset(self, q0=None):
-        from plugbot.control import HOME
         mujoco.mj_resetData(self.m, self.d)
-        q0 = HOME if q0 is None else q0
+        q0 = self.kin.home if q0 is None else q0
         self.d.qpos[self.scene.qadr] = q0
         self.d.ctrl[self.scene.act] = q0
         self.scene.set_ship(*self.motion(0.0))

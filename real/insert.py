@@ -1,10 +1,10 @@
 """실물 삽입 제어 루프(시뮬레이션 plugbot.control.run_trial과 같은 전략과 상태 기계).
 
 웹캠 영상 → 소켓 자세(SocketTracker) → 로봇 좌표(HandEye) → AR 예측과 정온 구간 판단 → IK → 팔.
-상태: approach(입구 위 30 mm로) → gate(예측 상하 속도가 작아질 때까지) → insert(축을 따라 내려감)
+상태: approach(입구 앞 30 mm로) → gate(예측 속도가 작아질 때까지) → insert(소켓 축을 따라 들어감)
      → release(그리퍼 열기, 자석 래치가 잡는다) → retract(축 방향으로 60 mm 물러남).
 
-실물:   .venv/bin/python -m real.insert --port /dev/tty.usbmodemXXXX --cam 0 --trials 10
+실물:   .venv/bin/python -m real.insert --port /dev/tty.usbmodemXXXX --cam 0 --trials 10 [--target car]
 가짜:   real/dry_run.py가 같은 run()을 SimWorld로 부른다.
 """
 
@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from plugbot.control import CONTROL_DT, HOME, Params, ar_predict
+from plugbot.control import CONTROL_DT, Params, ar_predict
 
 from .calib import HandEye
 
@@ -67,7 +67,7 @@ class Result:
 
 def run(robot, camera, tracker, hand_eye: HandEye, p: Params = Params(), strategy="predictive", cam_delay=0.0,
         monitor=None, timeout=None, release=True):
-    """한 번 꽂는다. monitor(robot)가 문자열을 돌려주면 그 이유로 중단한다(시뮬레이션 채점·안전용)."""
+    """한 번 꽂는다. monitor(robot)가 문자열을 돌려주면 그 이유로 중단한다(시뮬레이션 채점과 안전용)."""
     est, res = RealEstimator(p), Result()
     phase, depth_cmd, gate_t, hold_t = "approach", -p.hover, None, 0.0
     t0 = robot.now()
@@ -139,11 +139,11 @@ def _retract(robot, est, dist, speed=0.05):
         robot.wait_until(t_next)
 
 
-def go_home(robot, seconds=2.0):
-    q0, n = robot.q(), int(seconds / CONTROL_DT)
+def go_home(robot, seconds=2.0, target="ship"):
+    q0, n, q1 = robot.q(), int(seconds / CONTROL_DT), robot.kin.home_for(target)
     t_next = robot.now()
     for k in range(1, n + 1):
-        robot.command(q0 + (HOME - q0) * k / n)
+        robot.command(q0 + (q1 - q0) * k / n)
         t_next += CONTROL_DT
         robot.wait_until(t_next)
 
@@ -156,18 +156,19 @@ def main():
     ap.add_argument("--cam", type=int, default=0)
     ap.add_argument("--strategy", default="predictive", choices=["static", "reactive", "predictive"])
     ap.add_argument("--trials", type=int, default=5)
+    ap.add_argument("--target", default="ship", choices=["ship", "car"], help="선박 소켓(흔들림) 또는 자동차 충전구")
     ap.add_argument("--cam-delay", type=float, default=0.05, help="영상을 받은 시각과 실제 촬영 시각의 차(s)")
     a = ap.parse_args()
-    intr = Intrinsics.load() if (CONFIG / "camera.json").exists() else Intrinsics.from_fov(640, 480)
-    tracker, cam, robot = SocketTracker(intr), Camera(a.cam), RealRobot(a.port)
+    intr = Intrinsics.load() if (CONFIG / "camera.json").exists() else Intrinsics.from_fov()
+    tracker, cam, robot = SocketTracker(intr, a.target), Camera(a.cam), RealRobot(a.port)
     he = HandEye.load()
     robot.torque(True)
     ok = 0
     try:
         for k in range(a.trials):
-            go_home(robot)
+            go_home(robot, target=a.target)
             robot.gripper(False)
-            input(f"[{k + 1}/{a.trials}] 플러그를 그리퍼에 물리고(홈) 갑판을 준비한 뒤 Enter (Ctrl+C로 중단)")
+            input(f"[{k + 1}/{a.trials}] 플러그를 그리퍼에 물리고(시작 자세) 소켓을 준비한 뒤 Enter (Ctrl+C로 중단)")
             r = run(robot, cam, tracker, he, strategy=a.strategy, cam_delay=a.cam_delay)
             ok += r.seated
             print(f"  {'성공' if r.seated else '실패'} {r.reason} 시간 {r.t_seated:.1f}s, 마커 놓친 영상 {r.lost_frames}")

@@ -5,7 +5,7 @@
 - SocketTracker: ArUco 검출 → IPPE_SQUARE PnP → 마커 자세로 입구 위치(geometry.ENTRANCE_IN_MARKER) 계산.
 
 카메라 보정(한 번): .venv/bin/python -m real.vision calib --cam 0   (보정판 03을 여러 각도로 15장쯤 찍는다)
-추적 확인:          .venv/bin/python -m real.vision show --cam 0
+추적 확인:          .venv/bin/python -m real.vision show --cam 0 [--target car]
 """
 
 import argparse
@@ -30,8 +30,8 @@ class Intrinsics:
     size: tuple  # (폭, 높이)
 
     @classmethod
-    def from_fov(cls, width, height, hfov_deg=70.0):
-        """보정 전 근사값. 웹캠 수평 화각은 보통 60~78°다."""
+    def from_fov(cls, width=1280, height=720, hfov_deg=60.0):
+        """보정 전 근사값. 기본은 C270(1280 × 720, 수평 화각 약 60°)."""
         f = width / 2 / np.tan(np.deg2rad(hfov_deg) / 2)
         K = np.array([[f, 0, width / 2], [0, f, height / 2], [0, 0, 1.0]])
         return cls(K, np.zeros(5), (width, height))
@@ -50,7 +50,7 @@ class Intrinsics:
 class Camera:
     """OpenCV 웹캠을 백그라운드에서 읽는다. latest()는 (촬영 시각 time.monotonic, BGR 영상)."""
 
-    def __init__(self, index=0, width=640, height=480, fps=30):
+    def __init__(self, index=0, width=1280, height=720, fps=30):
         self.cap = cv2.VideoCapture(index)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -102,10 +102,10 @@ def marker_pose(corners, size, intr: Intrinsics):
 
 
 class SocketTracker:
-    """영상 한 장 → 소켓 입구 위치와 축(카메라 좌표계). 마커가 없으면 None."""
+    """영상 한 장 → 소켓 입구 위치와 축(카메라 좌표계). 마커가 없으면 None. target: "ship" 또는 "car"(마커 번호가 다르다)."""
 
-    def __init__(self, intr: Intrinsics):
-        self.intr = intr
+    def __init__(self, intr: Intrinsics, target="ship"):
+        self.intr, self.target = intr, target
         self.det = _detector()
 
     def detect(self, img_bgr):
@@ -116,14 +116,14 @@ class SocketTracker:
     def socket_pose(self, img_bgr):
         """소켓 좌표계 → 카메라 좌표계 (R, t). 탭 마커와 갑판 마커 중 보이는 것의 꼭짓점을 모두 쓴다."""
         found = self.detect(img_bgr)
-        board = G.board_points()
+        board = G.board_points(self.target)
         ids = [i for i in found if i in board]
         if not ids:
             return None
         obj = np.concatenate([board[i] for i in ids])
         img = np.concatenate([found[i].reshape(4, 2) for i in ids]).astype(np.float64)
         if len(ids) == 1:  # 마커 하나: 평면 정사각형 전용 해법으로 시작
-            size = G.SOCKET_MARKER_SIZE if ids[0] == G.SOCKET_MARKER_ID else G.DECK_MARKER_SIZE
+            size = G.SOCKET_MARKER_SIZE if ids[0] % 10 == G.SOCKET_MARKER_ID else G.DECK_MARKER_SIZE
             pose = marker_pose(found[ids[0]], size, self.intr)
             if pose is None:
                 return None
@@ -192,10 +192,10 @@ def _calibrate_camera(cam_index, n_target=15):
     print(f"카메라 보정 RMS {rms:.2f} px → {CONFIG / 'camera.json'}")
 
 
-def _show(cam_index):
+def _show(cam_index, target="ship"):
     cam = Camera(cam_index)
-    intr = Intrinsics.load() if (CONFIG / "camera.json").exists() else Intrinsics.from_fov(640, 480)
-    tr = SocketTracker(intr)
+    intr = Intrinsics.load() if (CONFIG / "camera.json").exists() else Intrinsics.from_fov()
+    tr = SocketTracker(intr, target)
     try:
         while True:
             t, img = cam.latest()
@@ -215,5 +215,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["calib", "show"])
     ap.add_argument("--cam", type=int, default=0)
+    ap.add_argument("--target", default="ship", choices=["ship", "car"])
     a = ap.parse_args()
-    _calibrate_camera(a.cam) if a.cmd == "calib" else _show(a.cam)
+    _calibrate_camera(a.cam) if a.cmd == "calib" else _show(a.cam, a.target)

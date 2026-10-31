@@ -1,12 +1,14 @@
-"""실물용 소프트웨어를 MuJoCo 가짜 세계에서 처음부터 끝까지 시험한다(로봇·웹캠 없이).
+"""실물용 소프트웨어를 MuJoCo 가짜 세계에서 처음부터 끝까지 시험한다(로봇, 웹캠 없이).
 
-1) 보정: 갑판을 6곳에 놓고 '손으로 끝까지 꽂은 자세'를 만들어 카메라→로봇 변환을 구한다(핀 끝 위치에 1 mm 잡음).
+배치는 real.geometry.LAYOUT(기본 side: 세운 판 소켓, L자 플러그). 파도는 부두에 옆으로 댄 배(좌우 롤).
+
+1) 보정: 소켓을 6곳에 놓고 '손으로 끝까지 꽂은 자세'를 만들어 카메라→로봇 변환을 구한다(핀 끝 위치에 1 mm 잡음).
    정답 카메라 자세와 비교한다.
-2) 삽입: 그 보정값으로 정지 소켓, 모형 유의파고 4 cm, 6 cm에서 예측·추종 전략을 시행한다.
-   채점은 시뮬레이션 정답(실제 소켓 위치)으로 한다: 목표 깊이 유지 = 성공, 몸체 충돌·선체 찌름 = 실패.
+2) 삽입: 그 보정값으로 정지 소켓, 모형 유의파고 4 cm, 6 cm에서 예측, 추종 전략을 시행한다.
+   채점은 시뮬레이션 정답(실제 소켓 위치)으로 한다: 목표 깊이 유지 = 성공, 몸체 충돌, 선체 찌름 = 실패.
 
 실행: .venv/bin/python -m real.dry_run [--trials 10]
-결과: outputs/real_dry_run.json
+결과: outputs/real_dry_run_{layout}.json
 """
 
 import argparse
@@ -28,16 +30,21 @@ from .vision import SocketTracker
 OUT = Path(__file__).resolve().parents[1] / "outputs"
 
 
-def calibrate(world, tracker, n=6, tip_noise=0.001, seed=0):
+def calibrate(world, tracker, n=8, tip_noise=0.001, seed=0):
     rng = np.random.default_rng(seed)
     p_cam, p_base = [], []
     for k in range(n):
-        pose = (rng.uniform([-0.03, -0.04, -0.015], [0.03, 0.04, 0.015]), rng.uniform(-0.06, 0.06), rng.uniform(-0.06, 0.06))
+        pose = (rng.uniform([-0.03, -0.05, -0.02], [0.03, 0.05, 0.02]), rng.uniform(-0.06, 0.06), rng.uniform(-0.06, 0.06))
         world.motion = lambda t, pose=pose: pose
         world.reset()
         ent, ax = world.socket_truth()
         bottom = ent - ax * (G.ENTRANCE_IN_SOCKET[2] - G.BORE_BOTTOM_IN_SOCKET[2])
-        q = world.kin.solve(world.q(), bottom, -ax)
+        q = world.q()
+        for back in (0.06, 0.03, 0.0):  # 입구 앞에서 축을 따라 들어가며 푼다(한 번에 풀면 다른 자세로 빠질 수 있다)
+            for _ in range(5):
+                q = world.kin.solve(q, bottom + ax * back, -ax)
+        if np.linalg.norm(world.kin.tip(q) - bottom) > 0.001:
+            continue
         world.set_arm(q)
         c = bore_bottom_cam(tracker, world.latest()[1])
         if c is None:
@@ -83,7 +90,8 @@ def main():
         for strategy in ("reactive", "predictive"):
             rows = []
             for k in range(a.trials):
-                world.motion = ShipMotion(hs, seed=100 + k) if hs > 0 else (lambda t: (np.zeros(3), 0.0, 0.0))
+                world.motion = (ShipMotion(hs, seed=100 + k, berth="alongside") if hs > 0
+                                else (lambda t: (np.zeros(3), 0.0, 0.0)))
                 world.reset()
                 world.truth_hold, world.truth_seated = 0.0, False
                 r = run(world, world, tracker, he, p, strategy=strategy, monitor=lambda w: judge(w, p), release=False)
@@ -101,7 +109,7 @@ def main():
                   f"{sorted(set(x['이유'] for x in rows if not x['성공']))}")
             out["결과"][f"hs{hs * 100:.0f}_{strategy}"] = {"성공률": float(rate), "시행": rows}
     OUT.mkdir(exist_ok=True)
-    (OUT / "real_dry_run.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    (OUT / f"real_dry_run_{G.LAYOUT}.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":

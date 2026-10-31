@@ -29,7 +29,7 @@ ap.add_argument("--strategy", default="predictive", choices=["static", "reactive
 ap.add_argument("--trials", type=int, default=10)
 ap.add_argument("--headless", action="store_true")
 ap.add_argument("--video", action="store_true",
-                help="첫 시행을 웹캠·발표용 두 시점으로 녹화해 outputs/isaac_video_*.mp4로 저장(화면 없이도 된다)")
+                help="첫 시행을 웹캠과 발표용 두 시점으로 녹화해 outputs/isaac_video_*.mp4로 저장(화면 없이도 된다)")
 ap.add_argument("--video-fps", type=int, default=25)
 ap.add_argument("--kp", type=float, default=1000.0, help="관절 위치 제어 강성(추종이 느리면 올린다)")
 ap.add_argument("--kd", type=float, default=30.0)
@@ -195,7 +195,7 @@ def run_trial(motion, strategy, p=Params(), seed=0, video=None):
                 done = (True, "", t)
         else:
             hold_t = 0.0
-    return done or (False, "시간 초과(걸림·정렬 실패)", float("nan"))
+    return done or (False, "시간 초과(걸림, 정렬 실패)", float("nan"))
 
 
 def main():

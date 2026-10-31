@@ -1,9 +1,13 @@
 """흔들리는 선박 소켓 삽입 실험: 파고 × 제어 전략 × 반복.
 
-실행: .venv/bin/python run_experiments.py
-결과: outputs/experiment.json, outputs/exp_성공률.png, outputs/exp_접촉력.png
+실행: .venv/bin/python run_experiments.py [--layout top|side]
+결과: outputs/experiment_{layout}.json, outputs/exp_{layout}_성공률.png, outputs/exp_{layout}_접촉력.png
+      (top: 갑판 위 소켓에 위에서 꽂기, side: 현측에 세운 소켓에 L자 플러그로 옆에서 꽂기.
+       배는 부두에 옆으로 댄 것(롤 축이 부두와 나란함, waves.ShipMotion berth="alongside").
+       예선 결과는 소켓을 키우기 전 top 배치, 선수 계류이며 experiment_small_socket.json에 남겨 두었다)
 """
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -49,12 +53,17 @@ def summarize(trials):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--layout", default="top", choices=["top", "side"])
+    layout = ap.parse_args().layout
     OUT.mkdir(exist_ok=True)
-    scene = Scene("ship")
+    scene = Scene("ship", layout)
     p = Params()
     res = {"조건": {"반복": N, "카메라": f"{p.cam_hz:.0f} Hz, 지연 {p.latency:.2f} s, 잡음 σ {p.noise*1000:.1f} mm",
-                   "제어/물리": "50 Hz / 500 Hz", "파도": "JONSWAP γ=3.3, Tp 2.0 s, 상하·좌우·앞뒤·롤·피치",
-                   "소켓": "깔때기 포착 반경 12 mm, 반경 여유 1.5 mm",
+                   "제어/물리": "50 Hz / 500 Hz", "파도": "JONSWAP γ=3.3, Tp 2.0 s, 상하, 좌우, 앞뒤, 롤, 피치(부두에 옆으로 댄 배: 롤 축이 부두와 나란함)",
+                   "소켓": "깔때기 포착 반경 19 mm, 반경 여유 2 mm",
+                   "배치": "갑판 위 소켓, 위에서 꽂기(일자 플러그)" if layout == "top"
+                   else "현측에 세운 소켓, 옆에서 꽂기(L자 플러그, 핀 65 mm)",
                    "축척": f"1:{SCALE} 가정 → 모형 Tp 2.0 s ≈ 실선 {2.0*np.sqrt(SCALE):.1f} s"},
            "결과": {}}
     t0 = time.time()
@@ -62,35 +71,35 @@ def main():
         key = f"Hs={hs*100:.0f}cm (실선 약 {hs*SCALE:.1f} m)"
         res["결과"][key] = {}
         for s in STRATEGIES:
-            trials = [run_trial(scene, s, ShipMotion(hs, seed=k), p, seed=k) for k in range(N)]
+            trials = [run_trial(scene, s, ShipMotion(hs, seed=k, berth="alongside"), p, seed=k) for k in range(N)]
             res["결과"][key][s] = summarize(trials)
             r = res["결과"][key][s]
             print(f"{key:22s} {s:10s} 성공 {r['성공률']*100:5.1f}%  F p95 {r['삽입 접촉력 p95 중앙값(N)']:7.1f} N", flush=True)
-    car = Scene("car")
+    car = Scene("car", layout)
     car_trials = [run_trial(car, s, None, p, seed=k) for s in STRATEGIES for k in range(5)]
-    res["자동차(정지 소켓, 45° 충전구)"] = summarize(car_trials)
+    res["자동차(정지 소켓, " + ("45° 충전구)" if layout == "top" else "세운 충전구)")] = summarize(car_trials)
     res["소요 시간(s)"] = round(time.time() - t0, 1)
-    (OUT / "experiment.json").write_text(json.dumps(res, ensure_ascii=False, indent=2))
-    plot(res)
+    (OUT / f"experiment_{layout}.json").write_text(json.dumps(res, ensure_ascii=False, indent=2))
+    plot(res, layout)
     print("완료", res["소요 시간(s)"], "s")
 
 
-def plot(res):
+def plot(res, layout):
     keys = list(res["결과"])
     hs_cm = [h * 100 for h in HS]
     fig, ax = plt.subplots(figsize=(6.4, 3.8), dpi=200)
     for s, label in STRATEGIES.items():
         c, mk, ls = STYLE[s]
         ax.plot(hs_cm, [res["결과"][k][s]["성공률"] * 100 for k in keys], color=c, marker=mk, ls=ls, lw=2, ms=7, label=label)
-    ax.set_xlabel(f"모형 유의파고 Hs (cm)  ·  축척 1:{SCALE} 가정 시 실선 Hs = ×0.1 m")
-    ax.set_ylabel(f"삽입 성공률 (%) · 조건당 {N}회")
+    ax.set_xlabel(f"모형 유의파고 Hs (cm), 축척 1:{SCALE} 가정 시 실선 Hs = ×0.1 m")
+    ax.set_ylabel(f"삽입 성공률 (%), 조건당 {N}회")
     ax.set_ylim(-3, 103)
     ax.set_xticks(hs_cm)
     ax.grid(alpha=0.3)
     ax.legend(fontsize=8, loc="lower left")
-    ax.set_title("흔들리는 선박 소켓 삽입 성공률 (MuJoCo · SO-101 모델)", fontsize=11)
+    ax.set_title("흔들리는 선박 소켓 삽입 성공률 (MuJoCo, SO-101 모델)", fontsize=11)
     fig.tight_layout()
-    fig.savefig(OUT / "exp_성공률.png")
+    fig.savefig(OUT / f"exp_{layout}_성공률.png")
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8), dpi=200)
@@ -108,7 +117,7 @@ def plot(res):
     ax.legend(fontsize=8, loc="upper left")
     ax.set_title("삽입 충격: 중앙값과 사분위 범위", fontsize=11)
     fig.tight_layout()
-    fig.savefig(OUT / "exp_접촉력.png")
+    fig.savefig(OUT / f"exp_{layout}_접촉력.png")
     plt.close(fig)
 
 
