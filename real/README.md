@@ -57,6 +57,8 @@ python -m real.robots write-default-map          # config/joint_map.json 생성
 ## 4. 순서 (처음 한 번)
 
 1. 웹캠 보정: `python -m real.vision calib --cam 0` → 보정판을 여러 각도로 15장. RMS 1 px 안팎이면 된다.
+   RealSense D435는 컬러 영상이 일반 웹캠처럼 열린다(맥에서 번호를 `lerobot-find-cameras opencv`로 확인. 1280 × 720,
+   화각 약 69°). 열리지 않으면 C270을 쓴다. 어느 카메라든 이 보정을 먼저 한다.
 2. 추적 확인: `python -m real.vision show --cam 0` (자동차는 `--target car`) → 갑판을 움직이면 숫자가 따라 바뀌는지.
 3. **관절 매핑 확인(필수)**: `python -m real.robots check --port /dev/tty.usbmodemXXXX`
    토크가 꺼진 팔을 손으로 움직여 화면 속 모델이 같은 자세인지 본다. 다른 관절은 `config/joint_map.json`의

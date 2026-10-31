@@ -451,19 +451,19 @@
   </transmission> 
 
 
-  <!-- PlugBot 플러그: 그리퍼에 고정(MuJoCo 모델과 같다). 핀 끝 = gripper_link 기준 [0.002, 0.0, -0.15] m -->
+  <!-- PlugBot 일자 플러그: 그리퍼에 고정(MuJoCo 모델과 같다). 핀 끝 = gripper_link 기준 [0.002, 0.0, -0.15] m -->
   <link name="plug_link">
     <visual>
-      <origin xyz="0.002 0.0 -0.15" rpy="0 0 0"/>
+      <origin xyz="0.002 0 -0.15" rpy="0 0 0"/>
       <geometry><mesh filename="assets/plug.stl" scale="0.001 0.001 0.001"/></geometry>
       <material name="plug_blue"><color rgba="0.12 0.30 0.62 1"/></material>
     </visual>
     <collision>
-      <origin xyz="0.002 0.0 -0.13" rpy="0 0 0"/>
+      <origin xyz="0.002 0 -0.13" rpy="0 0 0"/>
       <geometry><cylinder radius="0.006" length="0.040"/></geometry>
     </collision>
     <collision>
-      <origin xyz="0.002 0.0 -0.095" rpy="0 0 0"/>
+      <origin xyz="0.002 0 -0.095" rpy="0 0 0"/>
       <geometry><box size="0.016 0.018 0.030"/></geometry>
     </collision>
     <inertial><mass value="0.03"/><inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-6"/></inertial>
@@ -474,6 +474,30 @@
   <link name="plug_tip"/>
   <joint name="plug_tip_fixed" type="fixed">
     <parent link="plug_link"/><child link="plug_tip"/>
-    <origin xyz="0.002 0.0 -0.15" rpy="0 0 0"/>
+    <origin xyz="0.002 0 -0.15" rpy="0 0 0"/>
+  </joint>
+
+  <!-- 손목 카메라 거치대(MuJoCo Menagerie camera_mount와 같음) -->
+  <link name="wrist_camera_mount_link">
+    <visual>
+      <origin xyz="0 -0.000218 0.00095" rpy="3.141592653589793 0 0"/>
+      <geometry><mesh filename="assets/wrist_roll_follower_so101_camera_mount.stl"/></geometry>
+      <material name="mount_white"><color rgba="0.9 0.9 0.9 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0025 0.03 -0.03" rpy="0 0 0"/>
+      <geometry><box size="0.03 0.03 0.006"/></geometry>
+    </collision>
+    <inertial><mass value="0.012"/><inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/></inertial>
+  </link>
+  <joint name="wrist_camera_mount_fixed" type="fixed">
+    <parent link="gripper_link"/><child link="wrist_camera_mount_link"/><origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <!-- 손목 카메라 광학 좌표계(MuJoCo wrist_cam과 같음: -z가 보는 방향, +y가 위, 세로 화각 61°).
+       run_plugbot_isaac.py가 이 링크 아래에 USD 카메라를 만든다 -->
+  <link name="wrist_cam_link"/>
+  <joint name="wrist_cam_fixed" type="fixed">
+    <parent link="gripper_link"/><child link="wrist_cam_link"/>
+    <origin xyz="-0.00296 0.05436 -0.0531" rpy="-0.579674 -0.000383175 0.00960412"/>
   </joint>
 </robot>

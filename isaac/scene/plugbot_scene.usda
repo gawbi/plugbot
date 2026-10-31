@@ -32,7 +32,7 @@ def Xform "World"
         color3f[] primvars:displayColor = [(0.62, 0.63, 0.64)]
         double size = 1
         float3 xformOp:scale = (0.28, 0.6, 0.15)
-        double3 xformOp:translate = (-0.02, 0, -0.075)
+        double3 xformOp:translate = (-0.020000000000000018, 0, -0.075)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
 
@@ -368,7 +368,7 @@ def Xform "World"
     def Camera "Webcam"
     {
         float2 clippingRange = (0.01, 10)
-        float focalLength = 18
+        float focalLength = 18.147562
         float horizontalAperture = 20.955
         quatf xformOp:orient = (0.9184718, 0.29181507, 0.08082809, 0.25440195)
         double3 xformOp:translate = (0.36, -0.2, 0.3)

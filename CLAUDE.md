@@ -19,50 +19,54 @@
 
 ## 이 노트북에서 할 일 (순서대로. 사용자가 "시작"이라고 하면 1~6단계를 끝까지 진행한다. 단계마다 한두 줄로 알리고, 같은 오류로 세 번 막히면 멈추고 정리해서 묻는다)
 
+배치는 본선과 같은 **side**(현측에 세운 소켓, L자 플러그, 부두에 옆으로 댄 배의 롤)가 기본이다. 예선 배치는 `--layout top`.
+
 1. **환경 확인**: `nvidia-smi`(드라이버, GPU), Isaac Sim 5.1 파이썬 찾기.
    - 압축 설치: `~/isaacsim/python.sh` 등. 없으면 `find ~ -maxdepth 3 -name python.sh -path "*isaac*"`.
    - pip 설치: Isaac Sim이 깔린 가상환경의 python(`python -c "import isaacsim"`가 되는 것).
    - 찾은 경로를 사용자에게 한 줄로 알리고 진행한다.
 2. **설정과 첫 시험**: `bash isaac/setup_gpu.sh` (파이썬을 못 찾으면 `ISAAC_PY=~/isaacsim_env/bin/python`).
-   단계: 의존성 → `import_robot.py`(URDF → USD) → 정지 소켓 1회 → 파고 6 cm 영상 1개.
+   단계: 의존성 → `import_robot.py --layout side`, `--layout top`(URDF → USD) → 미리보기 사진 → 정지 소켓 1회 → 파고 6 cm 영상 1개.
+   미리보기 `outputs/isaac_preview_side_*.png`를 열어 사용자에게 보여 준다(장면이 맞는지 확인).
 3. **실패하면 고친다** (아래 '고칠 수 있는 것'). 한 단계씩 다시 돌린다.
 4. **본 실험(렌더링 없이 `--headless`)**: 각 30회
    - `--hs 0 --strategy predictive`
    - `--hs 0.06 --strategy predictive`, `--hs 0.06 --strategy reactive`, `--hs 0.06 --strategy static`
    - 여유가 있으면 `--hs 0.04`, `--hs 0.08`도 세 전략
 5. **발표 영상**: `--hs 0.06 --strategy predictive --trials 1 --headless --video`, 같은 조건 `--strategy reactive`도
-   (실패 장면 비교용). 결과 `outputs/isaac_video_*_{Webcam,ShowCam}.mp4`.
+   (실패 장면 비교용). 결과 `outputs/isaac_video_side_*_{Webcam,ShowCam,Wrist}.mp4`.
 6. **정리**: `outputs/ISAAC_RESULTS.md`에 표로 쓴다(조건, 성공률, 95% 신뢰구간(Wilson), MuJoCo 결과와 차이, 고친 것, 남은 문제).
    커밋은 아래 규칙대로 하고, `git push`는 사용자에게 물어본 뒤 한다.
+7. (사용자가 원하면) **ACT 학습 데이터**: `--hs 0.06 --dataset 50 --headless` → `data/isaac_side/`.
+   LeRobot 변환은 `tools/to_lerobot.py`(lerobot 0.6.1 환경, ACT_PLAN.md). data/는 커밋하지 않는다.
 
-## 비교 기준 (MuJoCo, `outputs/experiment_top_bow.json`, 조건당 30회)
-Isaac 스크립트는 아직 top 배치(갑판 위 소켓, 일자 플러그)와 선수 계류 파도(`ShipMotion` 기본값)다. 소켓은 본선용으로 키운 것
-(입구 지름 50 mm)이고, 이 조건의 MuJoCo 결과가 비교 기준이다. 본선 실물은 side 배치(세운 소켓, L자 플러그)이며
-Isaac에 옮기는 일은 아직 하지 않았다(사용자가 요청하면 진행).
+## 비교 기준 (MuJoCo, `outputs/experiment_side.json`, 조건당 30회)
+같은 배치, 같은 파도(side, 옆으로 댄 배)의 MuJoCo 결과다. 실행 스크립트가 끝에 같은 조건의 MuJoCo 성공률을 함께 출력한다.
+Isaac 스크립트는 충돌을 실패로 따로 세지 않으므로(시간 안에 꽂으면 성공) MuJoCo보다 조금 높게 나올 수 있다. 그 점을 결과표에 적는다.
 
 | 모형 Hs | static | reactive | predictive |
 |---|---|---|---|
 | 0 cm | 100% | 100% | 100% |
-| 4 cm | 93% | 90% | 100% |
-| 6 cm | 50% | 60% | 97% |
-| 8 cm | 27% | 23% | 93% |
+| 4 cm | 67% | 93% | 100% |
+| 6 cm | 20% | 50% | 87% |
+| 8 cm | 10% | 7% | 80% |
 
-Isaac 결과가 이와 크게 달라도 **숫자를 맞추려고 파라미터를 조정하지 않는다.** 차이가 나면 원인(드라이브 강성, 충돌 근사,
-물리 간격, 마찰)을 찾아 사실대로 적는다. 정지 소켓(Hs 0)이 실패하면 그건 물리 설정 문제이니 먼저 고친다.
+top 배치는 `outputs/experiment_top.json`(predictive 6 cm 93%, 8 cm 83%).
 
 ## 고칠 수 있는 것 / 고치지 않을 것
 - 고친다: `isaac/run_plugbot_isaac.py`, `isaac/import_robot.py`의 `[ISAAC]` 표시 줄(Isaac Sim 5.1 API 이름, 프림 경로,
   드라이브 강성 `--kp/--kd`, `PHYSICS_DT`). 5.1 API가 의심되면 설치 폴더의 확장 소스에서 확인한다
   (예: `grep -rn "class SingleArticulation" <isaac 설치폴더>/exts`). 추측으로 여러 번 바꾸지 말고 소스를 본다.
 - 고치지 않는다: `plugbot/`(MuJoCo 실험, 예측, IK), `real/`(실물 시연, 맥에서 검증), `cad/`. 계산은 Isaac 스크립트가 이것을 그대로 쓴다.
-- `isaac/so101/so101_plugbot.urdf`는 `isaac/build_assets.py`로만 다시 만든다(맥 또는 usd-core가 있는 파이썬).
+- `isaac/so101/so101_plugbot*.urdf`, `isaac/scene/*.usda`는 `isaac/build_assets.py`로만 다시 만든다(맥 또는 usd-core, scipy가 있는 파이썬).
 
 ## 알아 둘 사실 (맥에서 확인함)
 - 공식 SO-101 URDF(`so101_new_calib`)와 MuJoCo 모델은 기구학이 같다(그리퍼 자세 차 0.004 mm). 관절 이름과 각도를 그대로 쓴다.
 - SO-101은 팔 5축 + 그리퍼. 그래서 top 배치는 선박 갑판을 부두보다 5.5 cm 낮췄고(수직 삽입), 자동차 충전구는 45°로 기울였다.
   side 배치는 핀이 그리퍼 옆으로 나온 L자 플러그로 수평 삽입한다(그리퍼는 수직, 위치와 핀 방향을 함께 푸는 IK).
 - 플러그는 그리퍼에 고정(fixed joint). '놓기'는 실물에서 자석 래치가 맡고 시뮬레이션에서는 다루지 않는다.
-- 선박은 키네마틱 강체(`/World/Env/World/Ship`). 매 물리 스텝 `plugbot.waves.ShipMotion`으로 자세를 넣는다.
+- 선박은 키네마틱 강체(`/World/Env/World/Ship`). 매 물리 스텝 `plugbot.scene.ship_pose`(ShipMotion)로 자세를 넣는다.
+- 손목 카메라는 URDF의 `wrist_cam_link` 아래에 스크립트가 만든다(MuJoCo wrist_cam과 같은 자세, 세로 화각 61°).
 - 성공 = 플러그 끝이 보어 안 목표 깊이를 0.2 s 유지(MuJoCo와 같은 기준).
 
 ## 규칙

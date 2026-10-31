@@ -280,8 +280,8 @@ def run_trial(scene: Scene, strategy, motion=None, p: Params = Params(), seed=0,
                 scene.set_ship(*motion(t))
             mujoco.mj_step(m, d)
             t += m.opt.timestep
-        if on_step is not None:  # 학습 데이터 녹화용(제어 주기마다 한 번, 물리에는 영향 없음)
-            on_step(t, phase)
+            if on_step is not None:  # 학습 데이터 녹화용(물리 스텝마다 불러 30 fps 같은 간격을 맞춘다. 물리에는 영향 없음)
+                on_step(t, phase)
 
         body_hit, plug_hull, force = contacts(scene)
         tr.forces.append(force)

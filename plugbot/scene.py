@@ -230,12 +230,29 @@ class Scene:
         """소켓 입구 중심(월드)과 소켓 축(입구 바깥 방향, 단위 벡터)."""
         if self.mode == "ship":
             R = self.data.xmat[self.ship_body].reshape(3, 3)
-            if self.layout == "top":
-                base, axis = self.data.xpos[self.ship_body] + R @ SOCKET_ON_SHIP, R[:, 2]
-            else:
-                base, axis = self.data.xpos[self.ship_body] + R @ SOCKET_SIDE_ON_SHIP, R @ SIDE_AXIS
-        elif self.layout == "side":
+            return socket_on_ship_frame(self.layout, self.data.xpos[self.ship_body], R)
+        if self.layout == "side":
             return SIDE_ENTRANCE.copy(), SIDE_AXIS.copy()
-        else:
-            return CAR_ENTRANCE.copy(), CAR_AXIS.copy()
-        return base + axis * SOCKET_H, axis
+        return CAR_ENTRANCE.copy(), CAR_AXIS.copy()
+
+
+def socket_on_ship_frame(layout, ship_pos, R):
+    """선박 위치와 회전행렬 → (소켓 입구 중심, 소켓 축). MuJoCo 장면과 Isaac Sim 스크립트가 같이 쓴다."""
+    if layout == "top":
+        base, axis = ship_pos + R @ SOCKET_ON_SHIP, R[:, 2]
+    else:
+        base, axis = ship_pos + R @ SOCKET_SIDE_ON_SHIP, R @ SIDE_AXIS
+    return base + axis * SOCKET_H, axis
+
+
+def ship_pose(layout, motion, t):
+    """파도 운동 → (선박 위치, 쿼터니언 wxyz, 소켓 입구, 소켓 축). Scene.set_ship + socket_frame과 같은 계산(물리 없이)."""
+    disp, rx, ry = motion(t)
+    q = np.zeros(4)
+    mujoco.mju_euler2Quat(q, np.array([rx, ry, 0.0]), "xyz")
+    R = np.zeros(9)
+    mujoco.mju_quat2Mat(R, q)
+    R = R.reshape(3, 3)
+    pos = (SHIP_HOME if layout == "top" else SHIP_HOME_SIDE) + disp
+    ent, axis = socket_on_ship_frame(layout, pos, R)
+    return pos, q, ent, axis
