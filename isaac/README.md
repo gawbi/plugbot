@@ -12,13 +12,15 @@ MuJoCo 예선 실험(파고별 삽입 성공률)을 Isaac Sim에서 다시 돌�
 | `urdf_fk.py` | URDF 순기구학(numpy) | 무작위 자세 20개에서 MuJoCo와 그리퍼 자세 차 0.004 mm |
 | `scene/plugbot_scene.usda` | 부두, 바다, 선박(키네마틱 강체), 소켓(보이는 메시 + 볼록 충돌 17개), 웹캠 카메라 | 치수와 입구 높이가 MuJoCo와 같음 |
 | `build_assets.py` | 위 두 자산을 다시 만드는 스크립트 | 맥에서 실행 |
-| `run_plugbot_isaac.py` | 실험·영상 스크립트(아래) | 문법, 선박·소켓 계산이 MuJoCo와 같음(차 0) |
+| `run_plugbot_isaac.py` | 실험과 영상 스크립트(아래) | 문법, 선박과 소켓 계산이 MuJoCo와 같음(차 0) |
 
 ## GPU 노트북에서 할 일
 
-0. 한 번에: `git clone https://github.com/gawbi/plugbot.git && cd plugbot && ISAAC_SIM=~/isaacsim bash isaac/setup_gpu.sh`
+0. 한 번에: `gh repo clone gawbi/plugbot && cd plugbot && bash isaac/setup_gpu.sh`
+   (비공개 저장소라 `gh auth login` 필요. Isaac Sim을 pip로 깔았으면 아래 `./python.sh`를 `~/isaacsim_env/bin/python`으로 바꿔 읽는다.
+   화면 없이 돌릴 때는 앞에 `OMNI_KIT_ACCEPT_EULA=YES`)
    (아래 1~5를 순서대로 한다. 막히면 단계별로 직접 실행)
-1. 저장소를 받는다: `git clone https://github.com/gawbi/plugbot.git`
+1. 저장소를 받는다: `gh auth login` 후 `gh repo clone gawbi/plugbot`
 2. Isaac Sim 파이썬에 의존성:
    ```bash
    cd ~/isaacsim   # Isaac Sim 5.1 설치 폴더

@@ -1,14 +1,14 @@
-# PlugBot ACT 학습 계획 (SO-101 · LeRobot 0.6.1)
+# PlugBot ACT 학습 계획 (SO-101 ,  LeRobot 0.6.1)
 
 작성 2026-10-23. 시연 준비 기간 10/27~11/7.
 
 - 기준 버전: PyPI 최신 `lerobot==0.6.1`(2026-08-03 배포). GitHub main은 0.6.2 개발판이라 문서가 조금 앞서 있다. 맥과 우분투 모두 0.6.1로 고정한다.
 - 표기
-  - [실행확인]: 이 맥(M5)에 0.6.1을 설치해 로봇 없이 직접 돌려 봤다. 가짜 포트와 합성 데이터로 인자 해석, 학습 20스텝, 모델 로드, 데이터 합치기·삭제까지 확인했다.
+  - [실행확인]: 이 맥(M5)에 0.6.1을 설치해 로봇 없이 직접 돌려 봤다. 가짜 포트와 합성 데이터로 인자 해석, 학습 20스텝, 모델 로드, 데이터 합치기, 삭제까지 확인했다.
   - [코드확인]: v0.6.1 소스나 공식 문서에서 확인했다.
   - [미검증]: 확인하지 못했다. 현장에서 확인해야 한다.
 
-## 1. 결론: ACT vs SmolVLA·VLA
+## 1. 결론: ACT vs SmolVLA, VLA
 
 **ACT로 간다.** 이 과제는 한 장면에서 하는 한 가지 일이고, 1.5 mm 여유로 꽂아야 하며, 움직이는 소켓 때문에 지연에 민감하다.
 
@@ -16,31 +16,31 @@
 |---|---|---|---|
 | 크기 | 52M(우리 설정, 학습 로그 기준) [실행확인]. 문서에는 약 80M | 450M | Pi0 3.5B(SmolVLA 논문 표) |
 | 학습 VRAM (BS 8) | 2~6 GB | 10~16 GB(RTX 4080 이상 권장) | 24~40 GB. 12 GB로는 불가 |
-| 학습 시간(공식) | A100·BS 64에서 100k 스텝 약 1.5시간. 4090에서 5 epoch(4.5만 프레임) 30~60분 | A100·BS 64에서 20k 스텝 약 4~5시간 | 해당 없음 |
+| 학습 시간(공식) | A100, BS 64에서 100k 스텝 약 1.5시간. 4090에서 5 epoch(4.5만 프레임) 30~60분 | A100, BS 64에서 20k 스텝 약 4~5시간 | 해당 없음 |
 | 데이터 | 약 50회부터 시작 | 약 50회 권장(25회는 부족했다고 문서에 적힘) | - |
 | 추론 | 순전파 한 번에 100스텝 청크를 낸다. 이 맥에서 카메라 2대(640×480) 기준 MPS 39 ms, CPU 101 ms [실행확인] | flow matching 10단계. 공식 문서는 느린 VLA에 RTC나 비동기 추론을 권한다 | 같음 |
 | 언어 지시 | 필요 없음 | 쓰지만 이 과제에는 필요 없음 | - |
 
-- SmolVLA는 사전학습 덕에 일반화가 더 좋다. 논문의 SO101 레고 집기에서 ACT는 분포 안 70%·밖 40%, SmolVLA는 90%·50%였다. 하지만 이 과제는 카메라와 장면이 고정이라 일반화 이득이 작다. 반대로 지연과 12 GB 메모리 한계는 바로 손해로 이어진다.
+- SmolVLA는 사전학습 덕에 일반화가 더 좋다. 논문의 SO101 레고 집기에서 ACT는 분포 안 70%, 밖 40%, SmolVLA는 90%, 50%였다. 하지만 이 과제는 카메라와 장면이 고정이라 일반화 이득이 작다. 반대로 지연과 12 GB 메모리 한계는 바로 손해로 이어진다.
 - ACT 논문은 배터리 끼우기 같은 정밀 과제 6개를 10분 분량 시범으로 배워 80~90% 성공했다.
 - SmolVLA는 ACT가 정지 소켓에서도 60%를 넘지 못하고 시간이 남을 때만 시험한다. 그때는 배치 4 이하로 돌린다 [미검증].
 - **소켓 예측값을 추가 관측으로 넣는 법**
   - ACT 자체는 `observation.environment_state`를 별도 입력으로 받는다.
-  - 하지만 LeRobot의 녹화·실행 CLI는 로봇이 내는 숫자 관측을 모두 `observation.state` 하나로 묶는다.
-  - 그래서 가장 간단한 우회는 "SO-101 로봇 플러그인이 ArUco·예측값을 상태 벡터 뒤에 붙이는 것"이다(5.3절).
+  - 하지만 LeRobot의 녹화, 실행 CLI는 로봇이 내는 숫자 관측을 모두 `observation.state` 하나로 묶는다.
+  - 그래서 가장 간단한 우회는 "SO-101 로봇 플러그인이 ArUco, 예측값을 상태 벡터 뒤에 붙이는 것"이다(5.3절).
   - 1차 모델에는 넣지 않는다. 고정 카메라에 마커가 보이므로 ACT가 이미지에서 배운다.
 
 ## 2. 준비물
 
 - **로봇**
-  - SO-101 리더·팔로워와 각각의 전원.
+  - SO-101 리더, 팔로워와 각각의 전원.
   - 서보 전원을 한 번에 끌 수 있는 스위치 멀티탭.
 - **카메라 2대**
   - `front`: 고정. 소켓, ArUco(25 mm, DICT_4X4_50 id 0), 플러그 끝이 함께 보이게 비스듬히 위에서 본다.
   - `wrist`: 그리퍼에 단다. 핀 끝과 깔때기 입구가 보여야 한다.
   - 두 카메라 모두 640×480, 30 fps.
 - **고정 장치**
-  - 로봇 받침, 갑판, 카메라를 테이프·클램프로 고정한다. 녹화를 시작한 뒤에는 시연 때까지 움직이지 않는다.
+  - 로봇 받침, 갑판, 카메라를 테이프, 클램프로 고정한다. 녹화를 시작한 뒤에는 시연 때까지 움직이지 않는다.
   - 플러그 거치대: 에피소드 시작 위치다.
   - 레버 각도 눈금과 메트로놈 앱(흔들림 주기 고정용).
   - 조명 스탠드(현장 조명 차이 대비).
@@ -50,7 +50,7 @@
 - **우분투 GPU**
   - RTX 5070 Ti Laptop은 Blackwell 세대라 CUDA 12.8 이상으로 빌드된 PyTorch가 필요하다.
   - 드라이버가 580.65 이상이면 PyPI 기본 휠(cu130)을 쓴다. 570.86~580이면 cu128 휠을 쓴다(설치 문서).
-- **기록표**(공유 스프레드시트): 에피소드 번호, 데이터셋, 조건(정지 각도 또는 흔들림 주기·진폭·시작 위상), 결과, 메모.
+- **기록표**(공유 스프레드시트): 에피소드 번호, 데이터셋, 조건(정지 각도 또는 흔들림 주기, 진폭, 시작 위상), 결과, 메모.
 
 ## 3. 단계별 명령
 
@@ -64,11 +64,11 @@ hf auth login                            # write 토큰
 export HF_USER=$(NO_COLOR=1 hf auth whoami | awk -F': *' 'NR==1 {print $2}'); echo $HF_USER
 ```
 
-### 3.2 [맥] 포트·카메라 찾기
+### 3.2 [맥] 포트, 카메라 찾기
 
 ```bash
 lerobot-find-port              # 안내대로 팔 USB를 하나씩 뽑아 포트를 확인
-lerobot-find-cameras opencv    # 인덱스와 기본 해상도 확인. 재연결·재부팅 후 바뀔 수 있다
+lerobot-find-cameras opencv    # 인덱스와 기본 해상도 확인. 재연결, 재부팅 후 바뀔 수 있다
 F_PORT=/dev/tty.usbmodemXXXX   # 팔로워
 L_PORT=/dev/tty.usbmodemYYYY   # 리더
 CAMS='{ front: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 1, width: 640, height: 480, fps: 30}}'
@@ -134,7 +134,7 @@ lerobot-record \
 - **기본값**: 에피소드 60 s, 리셋 60 s, 50회. 위처럼 줄이고, 끝나면 `→`로 일찍 넘긴다.
   - 정지 소켓: `episode_time_s=25`.
   - 흔들림: `--dataset.repo_id=$HF_USER/plug_moving --dataset.episode_time_s=30`.
-- **`--dataset.no_stamp=true`**: 0.6.1은 기본으로 이름 뒤에 날짜·시각을 붙인다(예: `plug_static_20261024_143000`) [코드확인]. 이름을 고정하려면 켠다.
+- **`--dataset.no_stamp=true`**: 0.6.1은 기본으로 이름 뒤에 날짜, 시각을 붙인다(예: `plug_static_20261024_143000`) [코드확인]. 이름을 고정하려면 켠다.
 - **이어서 녹화**: 같은 명령에 아래를 붙인다. `num_episodes`는 총수가 아니라 추가할 개수다.
 
   ```bash
@@ -149,14 +149,14 @@ lerobot-record \
   - 커뮤니티 사례에서는 녹화 중 화면 표시를 켜면 30 Hz가 9.8 Hz로 떨어졌다.
 - **업로드**: 기본으로 Hub에 올라간다. 우분투에서 같은 계정으로 로그인하면 `repo_id`로 받는다.
 
-### 3.6 [맥/우분투] 확인: 시각화·재생·정보
+### 3.6 [맥/우분투] 확인: 시각화, 재생, 정보
 
 ```bash
 lerobot-dataset-viz --repo-id $HF_USER/plug_static --episode-index 0      # rerun 창 [실행확인]
 # 웹: https://huggingface.co/spaces/lerobot/visualize_dataset (비공개 데이터는 로그인)
 lerobot-replay --robot.type=so101_follower --robot.port=$F_PORT --robot.id=plug_follower \
   --dataset.repo_id=$HF_USER/plug_static --dataset.episode=0
-lerobot-edit-dataset --repo_id $HF_USER/plug_static --operation.type info  # 에피소드·프레임 수 [실행확인]
+lerobot-edit-dataset --repo_id $HF_USER/plug_static --operation.type info  # 에피소드, 프레임 수 [실행확인]
 ```
 
 replay는 정지 소켓 에피소드로만 해 본다. 흔들림 에피소드는 소켓 위상이 달라 의미가 없다.
@@ -171,7 +171,7 @@ lerobot-edit-dataset --new_repo_id $HF_USER/plug_all --operation.type merge \
 ```
 
 - 공식 문서의 merge 예시는 `--repo_id`를 쓴다. 하지만 0.6.1은 `--new_repo_id`가 없으면 오류를 낸다 [실행확인].
-- 합칠 데이터는 카메라 이름·해상도·상태 차원이 같아야 한다.
+- 합칠 데이터는 카메라 이름, 해상도, 상태 차원이 같아야 한다.
 - 합친 데이터를 우분투로 옮기는 방법은 두 가지다.
   - `--push_to_hub true`를 붙여 Hub로 올린다. 공개 여부는 [미검증].
   - `~/.cache/huggingface/lerobot/$HF_USER/plug_all` 폴더를 우분투의 같은 경로로 복사한다.
@@ -227,7 +227,7 @@ lerobot-train \
 lerobot-train --config_path=outputs/train/act_plug_v2/checkpoints/last/pretrained_model/train_config.json --resume=true
 ```
 
-- 같은 형태의 명령(합성 데이터, MPS, 20스텝, `--dataset.eval_split`·`--eval_steps` 포함)이 이 맥에서 돌았다 [실행확인].
+- 같은 형태의 명령(합성 데이터, MPS, 20스텝, `--dataset.eval_split`, `--eval_steps` 포함)이 이 맥에서 돌았다 [실행확인].
 - `--policy.repo_id`를 주지 않으려면 `--policy.push_to_hub=false`가 필요하다. 그렇지 않으면 오류가 난다 [코드확인].
 
 ### 3.10 [우분투] 로봇에서 실행과 평가 녹화
@@ -317,9 +317,9 @@ lerobot-rollout --strategy.type=episodic --policy.path=$CKPT --policy.n_action_s
 | `batch_size` | 8(기본) | 가이드상 ACT는 BS 8에서 2~6 GB다. 16도 12 GB에 들어갈 가능성이 높지만 [미검증], `nvidia-smi`로 확인한다 |
 | `steps` | 데이터 기준 5~10 epoch | 예: 150회 × 15 s × 30 fps ≈ 6.8만 프레임. BS 8로 10 epoch면 약 8.4만 스텝. 기본값은 10만 |
 | 학습률 | 1e-5(기본, 스케줄러 없음) | 바꾸지 않는다 |
-| `save_freq` | 10000 | 4만·6만·8만 스텝 체크포인트 중 정지 5회 예비 평가로 고른다 |
+| `save_freq` | 10000 | 4만, 6만, 8만 스텝 체크포인트 중 정지 5회 예비 평가로 고른다 |
 | `num_workers` | 4 | RAM 16 GB가 모자라 스왑이 생기면 2로 줄인다 |
-| `dataset.image_transforms.enable` | true | 밝기·대비·채도 등을 바꿔 현장 조명 변화에 대비한다 |
+| `dataset.image_transforms.enable` | true | 밝기, 대비, 채도 등을 바꿔 현장 조명 변화에 대비한다 |
 | `policy.use_amp` | false(기본) | 메모리가 모자랄 때만 true. 정확도 영향은 [미검증] |
 | `dataset.eval_split` / `eval_steps` | 첫 모델만 0.1 / 5000 | 검증 손실을 본다. 실제 성공률과의 상관은 약하므로 최종 학습에서는 끈다 |
 
@@ -346,7 +346,7 @@ lerobot-rollout --strategy.type=episodic --policy.path=$CKPT --policy.n_action_s
 - **CLI의 한계** [코드확인]
   - `lerobot-record`와 `lerobot-rollout`은 로봇이 내는 숫자 관측을 모두 `observation.state`로 묶는다.
   - rollout은 그중 이름이 `.pos`나 `.vel`로 끝나는 것만 정책에 넘긴다.
-  - 그래서 CLI만으로는 `environment_state`를 채울 수 없다. 별도의 Python 녹화·추론 루프가 필요한데, 이번 일정에는 추천하지 않는다.
+  - 그래서 CLI만으로는 `environment_state`를 채울 수 없다. 별도의 Python 녹화, 추론 루프가 필요한데, 이번 일정에는 추천하지 않는다.
 - **가장 간단한 우회: 로봇 플러그인**
   - SO-101을 감싸 `front` 영상에서 ArUco를 찾는다.
   - 마커 중심(u, v), 0.3 s 뒤 예측(u, v), 검출 여부를 `.pos` 이름으로 상태에 붙인다. 상태는 6차원에서 11차원이 된다.
@@ -455,7 +455,7 @@ class PlugbotFollower(SOFollower):
 - 정책 시작 시점을 0~1주기 사이에서 무작위로 늦춰 시작 위상을 섞는다.
 - 실제 진폭과 주기는 녹화된 `front` 영상에서 ArUco로 시행마다 사후 계산해 표에 적는다.
 
-**기록 항목**: 성공·부분·실패, 삽입까지 걸린 시간, 실패 유형(소켓 놓침·선체 찌름, 걸림, 놓기 실패, 집기 실패, 시간 초과).
+**기록 항목**: 성공, 부분, 실패, 삽입까지 걸린 시간, 실패 유형(소켓 놓침, 선체 찌름, 걸림, 놓기 실패, 집기 실패, 시간 초과).
 
 **보고 방식**: k/20과 95% 신뢰구간(Wilson)을 함께 적는다.
 
@@ -477,7 +477,7 @@ class PlugbotFollower(SOFollower):
 - 시험 녹화 10회 → 확인 → `plug_static` 50회 → `plug_moving` 30~40회.
 - 선택: 맥 MPS로 2000스텝 시험 학습을 하고 `rollout --strategy.type=base --device=mps`로 파이프라인을 미리 확인한다.
 
-| 날짜 | 할 일 | 판단·산출물 |
+| 날짜 | 할 일 | 판단, 산출물 |
 |---|---|---|
 | 10/27 화 | 우분투 설치, GPU(sm_120) 확인, 보정 복사, 원격조종 확인, 2000스텝 시험 학습. 밤: v1(`plug_static_clean`) 학습 | 학습 속도(it/s)로 이후 스텝 수를 정한다 |
 | 10/28 수 | v1 정지 소켓 예비 10회. 흔들림 데이터를 총 60~80회로 채운다. 밤: v2(`plug_all`) 학습 | v1 정지가 50% 미만이면 카메라 시야와 시범 일관성부터 점검 |
@@ -485,7 +485,7 @@ class PlugbotFollower(SOFollower):
 | 10/30 금 | 보완 녹화 30~40회(실패 조건, 회복 시범). 밤: v3 학습 | 5.3 플러그인을 할지 결정 |
 | 10/31 토 | v3 정식 평가 20+20 | 1차 수치 |
 | 11/1 일~11/2 월 | 개선 한 가지만: (a) dagger 보정 데이터, (b) 플러그인으로 재녹화, (c) 데이터 추가 중 택1. 밤: v4 학습 | |
-| 11/3 화 | v4와 v3 비교 평가. 최종 모델을 고정하고 이후 데이터·코드를 동결 | 최종 체크포인트(로컬과 Hub 둘 다 보관) |
+| 11/3 화 | v4와 v3 비교 평가. 최종 모델을 고정하고 이후 데이터, 코드를 동결 | 최종 체크포인트(로컬과 Hub 둘 다 보관) |
 | 11/4 수 | 고전 기준선 20+20 | 비교표 |
 | 11/5 목 | 현장 조건 리허설(조명, 철거 후 재설치, 카메라 위치 복원). 백업 영상 촬영 | 설치 체크리스트 |
 | 11/6 금 | 최종 평가 20+20(발표 수치), 발표 자료 | |
@@ -499,9 +499,9 @@ class PlugbotFollower(SOFollower):
 | 맥과 우분투의 보정 불일치 | 보정 폴더를 복사하고 같은 id를 쓴다. 다시 보정하지 않는다. 모터를 교체했다면 다시 보정하고 데이터 일부를 재녹화한다 |
 | 카메라 인덱스가 바뀌어 `front`와 `wrist`가 뒤바뀜 | 이름만 검사하므로 오류 없이 엉뚱하게 동작한다. 매 세션 `lerobot-find-cameras`와 `--display_data=true`로 화면을 확인한다 |
 | 맥 녹화 프레임 밀림 | 화면 표시를 끄고, `--dataset.rgb_encoder.vcodec=auto`를 쓰고, Cadence 보고를 확인한다 |
-| 현장 조명·배경이 다름 | `image_transforms`를 켜고, 조명 스탠드와 가림막을 쓴다. 가능하면 현장에서 10~20회를 추가 녹화해 합친 뒤 밤새 재학습한다 |
-| 흔들림 성공률이 낮음 | 흔들림을 더 느리고 작게 한다. 5.2의 B·C를 쓰고, 회복 시범을 늘리고, 5.3 플러그인을 쓴다. 최후에는 정지 소켓은 ACT, 흔들림은 고전 제어기로 나눠 시연하고 수치를 그대로 보고한다 |
-| 서보 과열·과부하(꽂은 채 계속 미는 경우) | 래치가 잡으면 놓는 동작을 시범에 넣는다. 시행 사이에 쉬고, 전원 스위치를 손 닿는 곳에 둔다. `--robot.max_relative_target`으로 한 스텝 이동량을 제한할 수 있다 [코드확인, 적정값은 미검증] |
+| 현장 조명, 배경이 다름 | `image_transforms`를 켜고, 조명 스탠드와 가림막을 쓴다. 가능하면 현장에서 10~20회를 추가 녹화해 합친 뒤 밤새 재학습한다 |
+| 흔들림 성공률이 낮음 | 흔들림을 더 느리고 작게 한다. 5.2의 B, C를 쓰고, 회복 시범을 늘리고, 5.3 플러그인을 쓴다. 최후에는 정지 소켓은 ACT, 흔들림은 고전 제어기로 나눠 시연하고 수치를 그대로 보고한다 |
+| 서보 과열, 과부하(꽂은 채 계속 미는 경우) | 래치가 잡으면 놓는 동작을 시범에 넣는다. 시행 사이에 쉬고, 전원 스위치를 손 닿는 곳에 둔다. `--robot.max_relative_target`으로 한 스텝 이동량을 제한할 수 있다 [코드확인, 적정값은 미검증] |
 | 학습 중 RAM 16 GB 부족 | `--num_workers=2`로 줄이고 다른 프로그램을 끈다 |
 | 현장에 네트워크가 없음 | 데이터와 모델을 로컬 경로로 쓴다(`--policy.path=outputs/...`, `--dataset.push_to_hub=false`) |
 | 시범 품질이 들쭉날쭉 | 조작자를 한 사람으로 정하고, 4절 절차를 인쇄해 옆에 둔다 |
@@ -512,17 +512,17 @@ class PlugbotFollower(SOFollower):
 - LeRobot 문서(0.6.1과 일치 확인)
   - 설치: https://huggingface.co/docs/lerobot/installation
   - SO-101: https://huggingface.co/docs/lerobot/so101
-  - 실물 모방학습(녹화·재생·학습·rollout): https://huggingface.co/docs/lerobot/il_robots
+  - 실물 모방학습(녹화, 재생, 학습, rollout): https://huggingface.co/docs/lerobot/il_robots
   - ACT: https://huggingface.co/docs/lerobot/act
   - SmolVLA: https://huggingface.co/docs/lerobot/smolvla
-  - 추론·rollout 전략: https://huggingface.co/docs/lerobot/inference
+  - 추론, rollout 전략: https://huggingface.co/docs/lerobot/inference
   - 카메라: https://huggingface.co/docs/lerobot/cameras
   - 데이터 도구: https://huggingface.co/docs/lerobot/using_dataset_tools
   - 스트리밍 인코딩: https://huggingface.co/docs/lerobot/streaming_video_encoding
-  - 연산 자원 가이드(VRAM·시간): https://huggingface.co/docs/lerobot/hardware_guide
+  - 연산 자원 가이드(VRAM, 시간): https://huggingface.co/docs/lerobot/hardware_guide
   - 노트북(학습 시간): https://huggingface.co/docs/lerobot/notebooks
   - 장치 플러그인: https://huggingface.co/docs/lerobot/integrate_hardware
-  - HIL·DAgger: https://huggingface.co/docs/lerobot/hil_data_collection
+  - HIL, DAgger: https://huggingface.co/docs/lerobot/hil_data_collection
 - GitHub v0.6.1 소스: https://github.com/huggingface/lerobot/tree/v0.6.1
   - `src/lerobot/policies/act/configuration_act.py`, `modeling_act.py`
   - `src/lerobot/scripts/lerobot_record.py`, `lerobot_rollout.py`, `lerobot_edit_dataset.py`

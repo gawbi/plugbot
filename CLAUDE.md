@@ -7,13 +7,23 @@
   **Isaac Sim 스크립트는 GPU가 없어 맥에서 한 번도 실행하지 못했다.** 이 노트북(RTX 5070 Ti Laptop, Ubuntu, Isaac Sim 5.1)에서
   처음 돌린다.
 
+## 이 노트북의 환경 (2026-11, 사용자가 알려 줌)
+- HP OMEN 16, Ubuntu 24.04, GPU 모드 `prime-select nvidia`.
+- Isaac Sim 5.1.0은 **pip로 `~/isaacsim_env`(Python 3.11, uv 가상환경)에 설치**했다. 설치 폴더와 `python.sh`가 없다.
+  - 파이썬: `~/isaacsim_env/bin/python`. 직접 부르면 `source activate`는 필요 없다.
+  - `isaac/setup_gpu.sh`는 이 경로를 스스로 찾는다. README의 `./python.sh ...` 명령은 이 파이썬으로 바꿔 실행한다.
+  - 사용자가 `~/isaacsim/python.sh`(위 파이썬을 실행하는 파일)를 만들어 두었을 수도 있다. 그러면 그대로 써도 된다.
+  - 화면 없이 돌릴 때는 `OMNI_KIT_ACCEPT_EULA=YES`를 붙인다(pip 설치판은 첫 실행에 사용권 동의를 묻는다).
+- GUI 실행과 URDF 불러오기는 다른 노트북에서 성공했다. `ROS2 Bridge startup failed` 경고는 무시한다.
+- 메모리를 아끼게 실험은 `--headless`로.
+
 ## 이 노트북에서 할 일 (순서대로. 사용자가 "시작"이라고 하면 1~6단계를 끝까지 진행한다. 단계마다 한두 줄로 알리고, 같은 오류로 세 번 막히면 멈추고 정리해서 묻는다)
 
 1. **환경 확인**: `nvidia-smi`(드라이버, GPU), Isaac Sim 5.1 파이썬 찾기.
    - 압축 설치: `~/isaacsim/python.sh` 등. 없으면 `find ~ -maxdepth 3 -name python.sh -path "*isaac*"`.
    - pip 설치: Isaac Sim이 깔린 가상환경의 python(`python -c "import isaacsim"`가 되는 것).
    - 찾은 경로를 사용자에게 한 줄로 알리고 진행한다.
-2. **설정과 첫 시험**: `ISAAC_SIM=<설치폴더> bash isaac/setup_gpu.sh` (pip 설치면 `ISAAC_PY=<python>`).
+2. **설정과 첫 시험**: `bash isaac/setup_gpu.sh` (파이썬을 못 찾으면 `ISAAC_PY=~/isaacsim_env/bin/python`).
    단계: 의존성 → `import_robot.py`(URDF → USD) → 정지 소켓 1회 → 파고 6 cm 영상 1개.
 3. **실패하면 고친다** (아래 '고칠 수 있는 것'). 한 단계씩 다시 돌린다.
 4. **본 실험(렌더링 없이 `--headless`)**: 각 30회
