@@ -40,11 +40,11 @@ Isaac 결과가 이와 크게 달라도 **숫자를 맞추려고 파라미터를
 - 고친다: `isaac/run_plugbot_isaac.py`, `isaac/import_robot.py`의 `[ISAAC]` 표시 줄(Isaac Sim 5.1 API 이름, 프림 경로,
   드라이브 강성 `--kp/--kd`, `PHYSICS_DT`). 5.1 API가 의심되면 설치 폴더의 확장 소스에서 확인한다
   (예: `grep -rn "class SingleArticulation" <isaac 설치폴더>/exts`). 추측으로 여러 번 바꾸지 말고 소스를 본다.
-- 고치지 않는다: `plugbot/`(MuJoCo 실험·예측·IK), `real/`(실물 시연, 맥에서 검증), `cad/`. 계산은 Isaac 스크립트가 이것을 그대로 쓴다.
+- 고치지 않는다: `plugbot/`(MuJoCo 실험, 예측, IK), `real/`(실물 시연, 맥에서 검증), `cad/`. 계산은 Isaac 스크립트가 이것을 그대로 쓴다.
 - `isaac/so101/so101_plugbot.urdf`는 `isaac/build_assets.py`로만 다시 만든다(맥 또는 usd-core가 있는 파이썬).
 
 ## 알아 둘 사실 (맥에서 확인함)
-- 공식 SO-101 URDF(`so101_new_calib`)와 MuJoCo 모델은 기구학이 같다(그리퍼 자세 차 0.004 mm). 관절 이름·각도를 그대로 쓴다.
+- 공식 SO-101 URDF(`so101_new_calib`)와 MuJoCo 모델은 기구학이 같다(그리퍼 자세 차 0.004 mm). 관절 이름과 각도를 그대로 쓴다.
 - SO-101은 팔 5축 + 그리퍼. 그래서 선박 갑판을 부두보다 5.5 cm 낮췄고(수직 삽입), 자동차 충전구는 45°로 기울였다.
 - 플러그는 그리퍼에 고정(fixed joint). '놓기'는 실물에서 자석 래치가 맡고 시뮬레이션에서는 다루지 않는다.
 - 선박은 키네마틱 강체(`/World/Env/World/Ship`). 매 물리 스텝 `plugbot.waves.ShipMotion`으로 자세를 넣는다.
@@ -52,7 +52,7 @@ Isaac 결과가 이와 크게 달라도 **숫자를 맞추려고 파라미터를
 
 ## 규칙
 - 사용자에게는 한국어로, 짧게. 진행 중에는 단계마다 한두 줄로 알린다.
-- 글에 가운데점(·)을 쓰지 않는다("A와 B", "A, B"로 쓴다).
+- 글에 가운데점(U+00B7)을 쓰지 않는다. "A와 B" 또는 "A, B"로 쓴다.
 - 커밋 작성자는 김광빈만: 처음에 `git config user.name "김광빈"`, `git config user.email "a30115964@gmail.com"`.
   커밋 메시지에 `Co-Authored-By` 같은 Claude 표시를 넣지 않는다.
 - 영상(mp4), USD 변환 결과는 `.gitignore` 대상이라 커밋하지 않는다. 결과 표(md, json)만 커밋한다.
