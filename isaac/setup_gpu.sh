@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # GPU 노트북(Ubuntu, Isaac Sim 5.1) 첫 설정 → 정지 소켓 1회 확인 → 발표 영상 1개 렌더.
-# 사용: ISAAC_SIM=~/isaacsim bash plugbot_demo/isaac/setup_gpu.sh
+# 사용: ISAAC_SIM=~/isaacsim bash isaac/setup_gpu.sh   (pip 설치면 ISAAC_PY=~/env_isaacsim/bin/python bash isaac/setup_gpu.sh)
 set -euo pipefail
 
+# Isaac Sim 파이썬: 압축 설치면 <설치폴더>/python.sh, pip 설치(가상환경)면 ISAAC_PY=그 파이썬 경로
 ISAAC="${ISAAC_SIM:-$HOME/isaacsim}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PY="$ISAAC/python.sh"
-[ -x "$PY" ] || { echo "Isaac Sim 5.1 폴더를 찾을 수 없다: $ISAAC (ISAAC_SIM=설치폴더 로 지정)"; exit 1; }
+PY="${ISAAC_PY:-$ISAAC/python.sh}"
+[ -x "$PY" ] || command -v "$PY" >/dev/null || { echo "Isaac Sim 파이썬을 찾을 수 없다: $PY (ISAAC_SIM=설치폴더 또는 ISAAC_PY=파이썬)"; exit 1; }
 
 echo "== 1/4 의존성 (Isaac Sim 파이썬). numpy는 Isaac Sim 것을 그대로 쓴다"
 "$PY" -m pip install "mujoco>=3.3" imageio imageio-ffmpeg pillow
