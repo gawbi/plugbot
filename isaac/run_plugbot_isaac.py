@@ -48,6 +48,9 @@ ap.add_argument("--reach", type=float, default=0.0,
                 help="0보다 크면 팔을 세운 홈 자세(plugbot.control.HOME)에서 출발해 이 시간(s) 동안 소켓 앞 시작 자세로 다가간 뒤 꽂는다"
                      "(영상, 학습 데이터용. 성공률 실험은 0으로 MuJoCo와 같게)")
 ap.add_argument("--armature", type=float, default=None, help="관절 armature kg m^2(기본: 없음). MuJoCo SO-101 모델은 0.028")
+ap.add_argument("--policy-port", type=int, default=0,
+                help="0보다 크면 정해진 제어기 대신 tools/policy_server.py(이 포트)의 학습 정책으로 움직인다(앞, 손목 카메라 30 fps)")
+ap.add_argument("--policy-name", default="act", help="결과 파일과 출력에 쓸 정책 이름")
 ap.add_argument("--tag", default="", help="결과 파일 이름 뒤에 붙인다(본 결과를 덮어쓰지 않게)")
 args = ap.parse_args()
 if args.dataset and args.video:
@@ -124,14 +127,16 @@ def add_wrist_camera():
 
 robot = world.scene.add(SingleArticulation(prim_path=root, name="so101"))  # [ISAAC]
 cams, ds_cams = {}, {}
-if args.video or args.preview or args.dataset:
+if args.video or args.preview or args.dataset or args.policy_port:
     from isaacsim.sensors.camera import Camera  # noqa: E402  [ISAAC]
     wrist_path = add_wrist_camera()
-    if args.dataset:  # 실물 ACT 녹화와 같은 이름, 해상도
+    if args.policy_port and args.video:
+        cams["ShowCam"] = Camera(prim_path="/World/Env/ShowCam", resolution=(1280, 720))  # [ISAAC]
+    if args.dataset or args.policy_port:  # 실물 ACT 녹화와 같은 이름, 해상도
         ds_cams["front"] = Camera(prim_path="/World/Env/Webcam", resolution=(CAM_W, CAM_H))  # [ISAAC]
         if wrist_path:
             ds_cams["wrist"] = Camera(prim_path=wrist_path, resolution=(CAM_W, CAM_H))  # [ISAAC]
-    else:
+    if not (args.dataset or args.policy_port):
         for cname in ("Webcam", "ShowCam"):
             cams[cname] = Camera(prim_path=f"/World/Env/{cname}", resolution=(1280, 720))  # [ISAAC]
         if wrist_path:
@@ -248,7 +253,7 @@ def collision(motion, t):
 
 
 def reset_robot():
-    q0 = HOME if args.reach > 0 else START
+    q0 = HOME if (args.reach > 0 or args.policy_port) else START
     world.reset()  # [ISAAC]
     robot.set_joint_positions(q0, joint_indices=np.array(dof))  # [ISAAC]
     set_arm(q0)
@@ -326,6 +331,58 @@ def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
     return (done or (False, "시간 초과(걸림, 정렬 실패)", float("nan"))) + (hit,)
 
 
+def run_policy_trial(motion, conn, video=None, timeout=15.0, p=Params()):
+    """학습한 정책으로 한 번 시행한다(tools/policy_server.py). 30 fps마다 앞, 손목 영상과 관절 상태(LeRobot 단위)를 보내고
+    받은 관절 목표를 그대로 보낸다. 채점과 충돌 기록은 run_trial과 같다. (성공, 이유, 삽입 시각, 첫 충돌)"""
+    reset_robot()
+    pos, quat, _, _ = ship_pose(args.layout, motion, 0.0)
+    ship.set_world_pose(position=pos, orientation=quat)
+    for _ in range(6):  # 첫 장 렌더 지연(학습 데이터를 만들 때와 같게)
+        world.step(render=True)  # [ISAAC]
+    conn.send({"reset": True})
+    conn.recv()
+    dt = 1.0 / 30
+    t, step, hold_t, done, hit, tail, next_frame = 0.0, 0, 0.0, None, None, 0.0, 0.0
+    while t < timeout + (1.0 if done else 0.0):
+        images = {name: rgb_of(cam) for name, cam in ds_cams.items()}
+        if all(v is not None for v in images.values()):
+            h, w, _ = next(iter(images.values())).shape
+            conn.send({"images": {n: np.ascontiguousarray(v).tobytes() for n, v in images.items()}, "shape": (h, w, 3),
+                       "state": to_lerobot_vector(arm_q()).tolist()})
+            set_arm(np.deg2rad(np.asarray(conn.recv()[:5])))
+        step += 1
+        while t < step * dt - 1e-9:
+            pos, quat, _, _ = ship_pose(args.layout, motion, t)
+            ship.set_world_pose(position=pos, orientation=quat)  # [ISAAC] 키네마틱 선박
+            world.step(render=t + PHYSICS_DT >= step * dt - 1e-9)  # [ISAAC] 다음 관측용으로 한 장 그린다
+            t += PHYSICS_DT
+        if hit is None and done is None:
+            c = collision(motion, t)
+            if c is not None:
+                hit = (c, t)
+        if video is not None and t >= next_frame:
+            video.grab()
+            next_frame += 1.0 / args.video_fps
+        if done is not None:
+            tail += dt
+            if video is None or tail >= 1.0:
+                return done + (hit,)
+            continue
+        _, _, entrance, axis = ship_pose(args.layout, motion, t)
+        rel = tip_of(arm_q()) - entrance
+        depth = -float(np.dot(rel, axis))
+        lateral = float(np.linalg.norm(rel + depth * axis))
+        if depth >= p.depth_goal and lateral < BORE_R - PIN_R + 0.001:
+            hold_t += dt
+            if hold_t >= p.hold:
+                done = (True, "", t)
+                if video is None:
+                    return done + (hit,)
+        else:
+            hold_t = 0.0
+    return (done or (False, "시간 초과(걸림, 정렬 실패)", float("nan"))) + (hit,)
+
+
 def motion_for(hs, seed):
     if hs <= 0:
         return lambda t: (np.zeros(3), 0.0, 0.0)
@@ -340,7 +397,7 @@ def mujoco_reference():
         return None
     res = json.loads(path.read_text())["결과"]
     key = next((k for k in res if k.startswith(f"Hs={args.hs * 100:.0f}cm")), None)
-    return None if key is None else res[key][args.strategy]["성공률"]
+    return None if key is None or args.strategy not in res[key] else res[key][args.strategy]["성공률"]
 
 
 def preview():
@@ -386,10 +443,18 @@ def main():
         record_dataset()
         app.close()
         return
+    conn = None
+    if args.policy_port:
+        from multiprocessing.connection import Client
+        conn = Client(("127.0.0.1", args.policy_port), authkey=b"plugbot")
+        args.strategy = args.policy_name
     rows = []
     for k in range(args.seed, args.seed + args.trials):
         video = VideoOut(f"{args.layout}_hs{args.hs * 100:.0f}_{args.strategy}") if (args.video and k == args.seed) else None
-        ok, why, t_ins, hit = run_trial(motion_for(args.hs, k), args.strategy, seed=k, video=video)
+        if conn is not None:
+            ok, why, t_ins, hit = run_policy_trial(motion_for(args.hs, k), conn, video=video)
+        else:
+            ok, why, t_ins, hit = run_trial(motion_for(args.hs, k), args.strategy, seed=k, video=video)
         if video is not None:
             video.close()
         ok_mj = ok and (hit is None or hit[1] > t_ins)  # MuJoCo는 꽂기 전에 부딪히면 그 자리에서 실패로 끝낸다
