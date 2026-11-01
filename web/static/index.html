@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PlugBot 같은 파도 대결</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07111f; --bg2: #0c1a2e; --card: #0f2038; --line: #1d3557; --text: #e8eef6; --muted: #8aa0bb;
+  --static: #f59e0b; --reactive: #60a5fa; --predictive: #2dd4bf; --ok: #22c582; --bad: #ef5350; --accent: #2dd4bf;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: radial-gradient(1200px 600px at 70% -10%, #12345a 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--text); font: 15px/1.6 "Noto Sans KR", system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #3b82f6);
+  display: grid; place-items: center; font-weight: 900; color: #04121f; font-size: 20px; }
+h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+.sub { color: var(--muted); margin: 2px 0 0; font-size: 14px; }
+nav { display: flex; gap: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+nav button { background: none; border: 0; color: var(--muted); font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 9px; cursor: pointer; }
+nav button.on { background: var(--card); color: var(--text); }
+.card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)) , var(--card);
+  border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+.label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; }
+.big { font-size: 34px; font-weight: 900; letter-spacing: -1px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.seed { display: flex; gap: 8px; margin-top: 6px; }
+.seed input { width: 100%; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font: inherit; }
+.btn { border: 1px solid var(--line); background: var(--bg2); color: var(--text); border-radius: 10px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.go { width: 100%; margin-top: 16px; padding: 14px; border: 0; border-radius: 12px; font: inherit; font-size: 17px; font-weight: 900;
+  color: #04121f; background: linear-gradient(135deg, var(--accent), #38bdf8); cursor: pointer; box-shadow: 0 8px 30px rgba(45,212,191,0.25); }
+.go:disabled { opacity: 0.6; cursor: wait; }
+.hint { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.stage { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 4 / 3; border: 1px solid var(--line); }
+.stage video { width: 100%; height: 100%; display: block; }
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; background: rgba(7,17,31,0.88); }
+.overlay p { margin: 10px 0 0; color: var(--muted); }
+.waves svg { width: 160px; height: 60px; }
+.waves path { animation: sway 1.6s ease-in-out infinite; transform-origin: center; }
+.waves path:nth-child(2) { animation-delay: -0.4s; opacity: 0.6; }
+@keyframes sway { 0%,100% { transform: translateX(-10px); } 50% { transform: translateX(10px); } }
+.results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+@media (max-width: 560px) { .results { gap: 6px; } .res { padding: 9px 8px 9px 12px; } .res .desc { display: none; }
+  .res .verdict { font-size: 15px; } .res .why { font-size: 11.5px; } }
+.res { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg2); position: relative; overflow: hidden; }
+.res::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c); }
+.res h3 { margin: 0; font-size: 16px; }
+.res .desc { color: var(--muted); font-size: 12.5px; }
+.res .verdict { margin-top: 8px; font-weight: 900; font-size: 18px; color: var(--muted); }
+.res .verdict.ok { color: var(--ok); } .res .verdict.bad { color: var(--bad); }
+.res .why { font-size: 12.5px; color: var(--muted); min-height: 1.6em; }
+canvas { width: 100%; height: 170px; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.score { display: grid; gap: 8px; margin-top: 8px; }
+.bar { height: 8px; background: var(--bg2); border-radius: 6px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--c); width: 0; transition: width 0.6s; }
+[hidden] { display: none !important; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+.tbl { overflow-x: auto; }
+.note { border-left: 3px solid var(--static); padding: 8px 12px; background: rgba(245,158,11,0.08); border-radius: 0 10px 10px 0; color: #f6d9a8; font-size: 14px; }
+img.wide { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; }
+h2 { font-size: 20px; margin: 0 0 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+footer { margin-top: 28px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.pill { display: inline-block; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; color: var(--muted); margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">P</div>
+      <div>
+        <h1>PlugBot 같은 파도 대결</h1>
+        <p class="sub">흔들리는 전기선박 소켓에 로봇팔이 스스로 충전 플러그를 꽂는다</p>
+      </div>
+    </div>
+    <nav>
+      <button data-tab="duel" class="on">대결</button>
+      <button data-tab="sim2real">Sim-to-Real</button>
+      <button data-tab="about">작품</button>
+    </nav>
+  </header>
+
+  <section id="duel">
+    <div class="grid">
+      <div class="card">
+        <div class="label">모형 유의파고</div>
+        <div class="row"><div class="big"><span id="hsv">6.0</span> cm</div><div class="hint" style="margin:0">실선 약 <span id="real">0.6</span> m</div></div>
+        <input id="hs" type="range" min="0" max="8" step="0.5" value="6">
+        <div class="label" style="margin-top:14px">파도 번호</div>
+        <div class="seed">
+          <input id="seed" type="number" min="0" max="999" value="2" inputmode="numeric">
+          <button class="btn" id="dice" title="무작위 파도">무작위 파도</button>
+        </div>
+        <button class="go" id="go">같은 파도로 대결 시작</button>
+        <p class="hint">세 로봇은 같은 카메라(0.1초 늦게 봄), 같은 팔, 같은 파도를 받는다. 다른 것은 꽂는 전략뿐이다.
+          시뮬레이션은 이 서버에서 MuJoCo로 바로 계산한다(한 판 약 5초).</p>
+        <div class="label" style="margin-top:16px">관객 점수판 <span id="rounds" style="float:right">0판</span></div>
+        <div class="score" id="score"></div>
+      </div>
+
+      <div>
+        <div class="stage">
+          <video id="video" playsinline muted preload="auto" onclick="this.paused ? this.play() : this.pause()"></video>
+          <div class="overlay" id="overlay">
+            <div>
+              <div class="waves"><svg viewBox="0 0 160 60"><path d="M0 35 Q20 15 40 35 T80 35 T120 35 T160 35" stroke="#2dd4bf" stroke-width="4" fill="none"/><path d="M0 45 Q20 25 40 45 T80 45 T120 45 T160 45" stroke="#60a5fa" stroke-width="4" fill="none"/></svg></div>
+              <div id="ovTitle" style="font-weight:900;font-size:20px">파고를 고르고 대결을 시작하세요</div>
+              <p id="ovSub">정지, 추종, 예측 로봇이 같은 파도에서 동시에 꽂는다</p>
+            </div>
+          </div>
+        </div>
+        <div class="results" id="results"></div>
+        <div class="card" style="margin-top:14px;padding:14px">
+          <div class="row"><div class="label">소켓 입구의 위아래 움직임 (mm)</div><button class="btn" id="replay" style="padding:5px 10px">다시 보기</button></div>
+          <canvas id="chart"></canvas>
+          <div class="legend">
+            <span><i style="background:#e8eef6"></i>실제 위치</span>
+            <span><i style="background:#8aa0bb;opacity:.7"></i>카메라가 본 위치(0.1초 늦음)</span>
+            <span><i style="background:var(--static)"></i>정지</span><span><i style="background:var(--reactive)"></i>추종</span><span><i style="background:var(--predictive)"></i>예측</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sim2real" hidden>
+    <div class="card">
+      <h2>시뮬레이션과 실물 사이의 갭</h2>
+      <p>시뮬레이션에서 되던 것이 실물에서는 안 되는 차이가 Sim-to-Real 갭이다. PlugBot은 같은 실험을 두 물리 엔진(MuJoCo, NVIDIA Isaac Sim)에서
+        돌려 엔진이 바뀌어도 결론이 유지되는지 확인하고, 실물에서 달라질 값(카메라 지연, 잡음, 보정 오차, 서보 강성, 마찰)을 바꿔 가며 견디는지 시험했다.</p>
+      <img class="wide" src="/media/isaac_gif" alt="Isaac Sim에서 같은 파도로 찍은 추종과 예측">
+      <p class="hint">Isaac Sim 5.1 실제 렌더. 모형 파고 6 cm, 파도 번호 2에서 추종(왼쪽)과 예측(오른쪽) 모두 꽂았다.</p>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>두 엔진의 성공률 (조건당 30회)</h2>
+      <div class="tbl"><table id="isaacTable"><thead><tr><th>파고</th><th>전략</th><th>Isaac Sim</th><th>MuJoCo</th></tr></thead><tbody></tbody></table></div>
+      <p class="note" style="margin-top:12px">예측 전략은 두 엔진에서 비슷하다(6 cm Isaac 97%, MuJoCo 87%). 추종 전략은 Isaac에서 모든 파고 100%로 MuJoCo와 크게 달라,
+        '예측이 추종보다 낫다'는 결론은 Isaac에서 재현되지 않았다. 판정 규칙과 서보 값을 맞춰도 같아 원인을 조사 중인 물리 엔진 갭이다.
+        이 페이지의 대결은 MuJoCo로 계산한다.</p>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>실물이 이만큼 달라도 된다</h2>
+      <img class="wide" src="/media/robustness" alt="카메라 지연, 잡음, 보정 오차, 서보 강성, 마찰, 파도 주기에 따른 성공률">
+      <p class="hint">MuJoCo, 조건당 30회. 회색 띠는 실물에서 예상하는 범위(가정).</p>
+    </div>
+  </section>
+
+  <section id="about" hidden>
+    <div class="two">
+      <div class="card">
+        <h2>무엇을 하는가</h2>
+        <p>전기선박은 부두에 묶여 있어도 파도에 흔들린다. 전기차 충전에서 검증된 작은 로봇팔과 카메라로 움직이는 소켓에 충전 플러그를 꽂는다.</p>
+        <p><span class="pill">정지</span>처음 본 위치로 꽂는다.<br>
+           <span class="pill">추종</span>카메라가 본 위치를 계속 따라간다. 카메라는 0.1초 늦게 보므로 늘 한 박자 늦다.<br>
+           <span class="pill">예측</span>최근 3초의 움직임으로 0.1초 뒤를 예측(AR 모델)하고, 소켓이 잔잔해지는 순간에만 꽂는다.</p>
+        <p class="hint">로봇 SO-101(5축 + 그리퍼), 세운 소켓(입구 50 mm 깔때기), L자 플러그. 축척 1:10 모형이라 모형 파고 6 cm는 실선 약 0.6 m.</p>
+      </div>
+      <div class="card">
+        <h2>본선 시연 키트</h2>
+        <img class="wide" src="/media/kit" alt="흔들림 갑판 위 세운 소켓과 SO-101">
+        <p class="hint">3D 프린트 흔들림 갑판을 서보가 시뮬레이션과 같은 파도 식으로 흔든다.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선, 팀 PlugBot</footer>
+</div>
+
+<script>
+const S = [
+  { key: "static", label: "정지", desc: "처음 본 위치로 꽂는다", color: "#f59e0b" },
+  { key: "reactive", label: "추종", desc: "0.1초 늦게 본 위치를 따라간다", color: "#60a5fa" },
+  { key: "predictive", label: "예측", desc: "AR 예측 + 잔잔한 순간에 꽂는다", color: "#2dd4bf" },
+];
+const $ = (id) => document.getElementById(id);
+const hs = $("hs"), seed = $("seed"), video = $("video"), overlay = $("overlay"), chart = $("chart");
+let meta = null, raf = 0;
+
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach((s) => s.hidden = s.id !== b.dataset.tab);
+  if (b.dataset.tab === "sim2real") loadIsaac();
+});
+
+function showHs() { $("hsv").textContent = (+hs.value).toFixed(1); $("real").textContent = (hs.value / 10).toFixed(2).replace(/0$/, ""); }
+hs.oninput = showHs; showHs();
+$("dice").onclick = () => { seed.value = Math.floor(Math.random() * 1000); };
+
+function resultCards() {
+  $("results").innerHTML = S.map((s) => `
+    <div class="res" style="--c:${s.color}" id="r_${s.key}">
+      <h3>${s.label}</h3><div class="desc">${s.desc}</div>
+      <div class="verdict" id="v_${s.key}">대기</div><div class="why" id="w_${s.key}"></div>
+    </div>`).join("");
+}
+resultCards();
+
+function renderScore(sc) {
+  $("rounds").textContent = `${sc.rounds}판`;
+  $("score").innerHTML = S.map((s) => {
+    const w = sc.wins[s.key] || 0, p = sc.rounds ? Math.round((w / sc.rounds) * 100) : 0;
+    return `<div><div class="row" style="font-size:13px"><span>${s.label}</span><span>${w}승 (${p}%)</span></div>
+      <div class="bar" style="--c:${s.color}"><div style="width:${p}%"></div></div></div>`;
+  }).join("");
+}
+fetch("/api/score").then((r) => r.json()).then(renderScore).catch(() => {});
+// ?auto=1: 접속하자마자 대결(발표장 화면), ?hs=6&seed=2로 조건 지정
+const q = new URLSearchParams(location.search);
+if (q.has("hs")) { hs.value = q.get("hs"); showHs(); }
+if (q.has("seed")) seed.value = q.get("seed");
+if (q.get("auto") === "1") setTimeout(() => $("go").click(), 300);
+
+$("go").onclick = async () => {
+  const go = $("go"); go.disabled = true;
+  overlay.hidden = false; $("ovTitle").textContent = "세 로봇이 같은 파도를 기다리는 중"; $("ovSub").textContent = "MuJoCo로 계산하고 영상을 만드는 중(약 5초)";
+  resultCards(); video.pause();
+  if (window.innerWidth < 860) document.querySelector(".stage").scrollIntoView({ behavior: "smooth", block: "start" });
+  try {
+    const r = await fetch("/api/duel", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hs_cm: +hs.value, seed: Math.max(0, Math.min(999, parseInt(seed.value) || 0)) }) });
+    if (!r.ok) throw new Error(await r.text());
+    meta = await r.json();
+    renderScore(meta.score);
+    video.src = meta.video;
+    overlay.hidden = true;
+    video.play().catch(() => {});  // 자동 재생이 막히면 영상을 누르면 재생된다
+    tick();
+  } catch (e) {
+    $("ovTitle").textContent = "실패했다. 잠시 뒤 다시 눌러 주세요"; $("ovSub").textContent = String(e).slice(0, 120);
+  } finally { go.disabled = false; }
+};
+$("replay").onclick = () => { if (!meta) return; resultCards(); video.currentTime = 0; video.play(); tick(); };
+
+function tick() {
+  cancelAnimationFrame(raf);
+  const loop = () => {
+    const t = video.currentTime;
+    draw(t);
+    for (const s of S) {
+      const r = meta.results[s.key], v = $("v_" + s.key), w = $("w_" + s.key);
+      if (t >= r.t_end) {
+        v.textContent = r.success ? "성공" : "실패";
+        v.className = "verdict " + (r.success ? "ok" : "bad");
+        w.textContent = r.success ? `${r.t_insert.toFixed(2)}초에 끝까지 꽂음` : r.reason;
+      } else { v.textContent = "시도 중"; v.className = "verdict"; w.textContent = ""; }
+    }
+    if (!video.paused && !video.ended) raf = requestAnimationFrame(loop);
+    else draw(video.currentTime);
+  };
+  raf = requestAnimationFrame(loop);
+}
+video.addEventListener("play", () => meta && tick());
+
+function draw(now) {
+  const dpr = window.devicePixelRatio || 1, W = chart.clientWidth, H = chart.clientHeight;
+  chart.width = W * dpr; chart.height = H * dpr;
+  const g = chart.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+  if (!meta) return;
+  const { t, z, z_seen } = meta.wave, T = meta.duration;
+  const lo = Math.min(-5, ...z, ...z_seen), hi = Math.max(5, ...z, ...z_seen), pad = 22;
+  const X = (x) => pad + (x / T) * (W - pad - 8), Y = (y) => 8 + (1 - (y - lo) / (hi - lo)) * (H - 30);
+  g.strokeStyle = "#1d3557"; g.lineWidth = 1; g.beginPath(); g.moveTo(pad, Y(0)); g.lineTo(W - 8, Y(0)); g.stroke();
+  g.fillStyle = "#8aa0bb"; g.font = "11px sans-serif";
+  for (let s = 0; s <= T; s += 1) g.fillText(`${s}s`, X(s) - 6, H - 6);
+  const line = (arr, color, dash, width) => {
+    g.strokeStyle = color; g.setLineDash(dash); g.lineWidth = width; g.beginPath();
+    arr.forEach((v, i) => (i ? g.lineTo(X(t[i]), Y(v)) : g.moveTo(X(t[i]), Y(v)))); g.stroke(); g.setLineDash([]);
+  };
+  line(z_seen, "rgba(138,160,187,0.7)", [5, 4], 1.5);
+  line(z, "#e8eef6", [], 2);
+  S.forEach((s, k) => {
+    const r = meta.results[s.key], x = X(r.t_end);
+    g.strokeStyle = s.color; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 8 + k * 4); g.lineTo(x, H - 22); g.stroke();
+    g.fillStyle = s.color; g.beginPath(); g.arc(x, 8 + k * 4, 4, 0, 2 * Math.PI); g.fill();
+  });
+  g.strokeStyle = "rgba(45,212,191,0.9)"; g.lineWidth = 1; g.beginPath(); g.moveTo(X(now), 4); g.lineTo(X(now), H - 22); g.stroke();
+}
+window.addEventListener("resize", () => meta && draw(video.currentTime));
+
+let isaacLoaded = false;
+async function loadIsaac() {
+  if (isaacLoaded) return; isaacLoaded = true;
+  const d = await fetch("/api/isaac").then((r) => r.json());
+  const pct = (v) => v == null ? "-" : `${Math.round(v * 100)}%`;
+  document.querySelector("#isaacTable tbody").innerHTML = d.rows.map((r) =>
+    `<tr><td>${r.hs_cm} cm</td><td>${r.label}</td><td>${pct(r.isaac)}</td><td>${pct(r.mujoco)}</td></tr>`).join("");
+}
+</script>
+</body>
+</html>

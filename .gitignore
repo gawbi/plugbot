@@ -17,3 +17,5 @@ outputs/_layout_chart.png
 # 학습 데이터(에피소드 영상)
 data/
 outputs/showreel_*.mp4
+# 웹 시연 캐시(영상, 점수판)
+web/cache/
