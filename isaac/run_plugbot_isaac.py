@@ -255,6 +255,11 @@ def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
     video가 있으면 녹화하고 성공 뒤 1초 더 찍는다. 충돌은 기록만 하고 시행을 끝내지 않는다(MuJoCo는 끝낸다)."""
     rng = np.random.default_rng(seed)
     reset_robot()
+    if video is not None or rec is not None:  # [ISAAC] RTX 렌더가 한두 장 늦게 따라와 첫 장에 이전 자세가 흐리게 찍힌다
+        pos, quat, _, _ = ship_pose(args.layout, motion, 0.0)
+        ship.set_world_pose(position=pos, orientation=quat)
+        for _ in range(6):  # 팔은 START를 유지하고 선박은 t = 0 자세로 둔 채 몇 장 그린다(물리 12 ms, 시각 t는 0부터)
+            world.step(render=True)
     est = SocketEstimator(strategy, p, rng)
     phase, depth_cmd, gate_t, hold_t, t = "approach", -p.hover, None, 0.0, 0.0
     hit = None
