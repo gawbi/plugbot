@@ -18,9 +18,14 @@
 ## 순서
 
 ```bash
-# 0. 한 번: 시리얼 포트 권한(다시 로그인해야 적용), 보정 파일을 맥에서 복사(다시 보정하지 않는다)
+# 0. 한 번: 시리얼 포트 권한(다시 로그인해야 적용)
 sudo usermod -aG dialout $USER
-scp -r <맥>:~/.cache/huggingface/lerobot/calibration ~/.cache/huggingface/lerobot/
+
+# 0-1. 처음 한 번: 보정(실물 로봇은 이 노트북에서 처음 다룬다). 새 모터면 먼저 ID 설정(motors)
+bash act/calibrate.sh follower motors     # 새 모터일 때만(조립 전, 안내대로 모터를 하나씩 꽂는다)
+bash act/calibrate.sh leader motors
+bash act/calibrate.sh follower            # 녹화 시작 뒤에는 다시 보정하지 않는다
+bash act/calibrate.sh leader
 
 # 1. 로봇 두 대와 카메라 두 대를 꽂고 점검. 나온 /dev/v4l/by-id 경로를 act/env.sh의 FRONT_CAM, WRIST_CAM에 적는다
 bash act/check.sh

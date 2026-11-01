@@ -14,10 +14,10 @@ print(f"  [{'O' if torch.cuda.is_available() else 'X'}] torch {torch.__version__
 print(f"  [O] lerobot {md.version('lerobot')}")
 EOF
 
-echo "== 보정 파일(맥에서 복사, 다시 보정하지 않는다)"
+echo "== 보정 파일(처음 한 번 bash act/calibrate.sh follower, leader. 녹화를 시작한 뒤에는 다시 보정하지 않는다)"
 CAL=~/.cache/huggingface/lerobot/calibration
 for f in "robots/so_follower/$F_ID.json" "teleoperators/so_leader/$L_ID.json"; do
-  [ -f "$CAL/$f" ] && ok "$CAL/$f" || no "$CAL/$f 없음: 맥의 같은 경로에서 복사(scp -r 맥:~/.cache/huggingface/lerobot/calibration ~/.cache/huggingface/lerobot/)"
+  [ -f "$CAL/$f" ] && ok "$CAL/$f" || no "$CAL/$f 없음: bash act/calibrate.sh follower(또는 leader)"
 done
 
 echo "== 로봇 포트(팔로워 $F_PORT, 리더 $L_PORT)"
