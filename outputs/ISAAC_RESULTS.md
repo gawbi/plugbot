@@ -56,8 +56,9 @@ STS3215 값으로 맞춰 다시 돌렸다. 결과 파일 `*_mjservo.json`, `*_mj
 
 ## 발표 영상
 
-`SEED=2 bash isaac/make_showreel.sh`로 한 번 찍었다. 시드 2에서 추종, 예측, 정지 소켓 모두 성공(충돌 없음).
-결과 `outputs/showreel_side_hs6_compare.gif`(3.6 MB, README에 넣음), `_compare.mp4`, `_views.mp4`(mp4는 커밋하지 않음).
+`SEED=2 bash isaac/make_showreel.sh`로 찍었다. 영상은 팔을 세운 홈 자세에서 출발해 2.5초 동안 소켓 앞으로 다가간 뒤 꽂는다(`--reach 2.5`,
+성공률 실험은 MuJoCo와 같게 소켓 앞에서 시작). 시드 2에서 추종 4.84 s, 예측 7.44 s, 정지 소켓 4.24 s에 모두 성공(충돌 없음).
+결과 `outputs/showreel_side_hs6_compare.gif`(9.2 MB, README에 넣음), `_compare.mp4`, `_views.mp4`(mp4는 커밋하지 않음).
 '추종 실패, 예측 성공' 장면은 얻지 못했다. 6 cm 추종이 시드 0~29 모두 성공했으므로 시드를 바꿔 다시 찍지 않았다.
 (6 cm에서 정지 전략은 시드 9, 11, 12, 14, 17, 18, 23, 25, 27, 29에서 실패, 예측은 시드 7에서만 실패.
 '정지 실패, 예측 성공' 비교라면 이 시드로 찍을 수 있다.)
@@ -82,7 +83,8 @@ Isaac 판정은 충돌 뒤에도 시행을 계속하므로, 'Isaac' 열에는 �
 | 영상 1회 실행이 30회 결과 json을 덮어씀 | 같은 파일 이름 | `--tag` 옵션, `make_showreel.sh`는 `--tag video` |
 | `print` 출력이 로그에 안 남음 | 앱 종료 때 버퍼가 버려짐 | 실행할 때 `PYTHONUNBUFFERED=1` |
 
-추가 옵션: `--max-effort`, `--armature`(원인 확인용, 기본값은 이전과 같음), `--tag`.
+추가 옵션: `--max-effort`, `--armature`(원인 확인용, 기본값은 이전과 같음), `--tag`, `--reach`(영상, 학습 데이터에서 홈 자세부터 출발).
+학습 데이터와 영상의 첫 장에 이전 자세가 흐리게 찍히던 것은 시행 시작 전에 몇 장 그려 두는 것으로 고쳤다.
 
 ## 남은 문제
 

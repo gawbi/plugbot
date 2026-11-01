@@ -13,13 +13,14 @@ fi
 [ -d "$HOME/isaacsim_compat/lib" ] && export LD_LIBRARY_PATH="$HOME/isaacsim_compat/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"  # Ubuntu 26.04: 24.04의 libxml2.so.2, libGLU를 풀어 둔 곳(URDF 가져오기에 필요)
 export OMNI_KIT_ACCEPT_EULA=YES
 SEED="${SEED:-2}"  # MuJoCo에서 Hs 6 cm 추종 실패, 예측 성공인 시드(make_media.py). Isaac에서 다르면 바꿔 본다
+REACH="${REACH:-2.5}"  # 팔을 세운 홈 자세에서 출발해 소켓 앞까지 다가가는 시간(s). 0이면 소켓 앞에서 시작
 
 for s in reactive predictive; do
   echo "== 파고 6 cm, $s, 시드 $SEED"
-  "$PY" "$HERE/run_plugbot_isaac.py" --hs 0.06 --strategy "$s" --trials 1 --seed "$SEED" --headless --video --tag video
+  "$PY" "$HERE/run_plugbot_isaac.py" --hs 0.06 --strategy "$s" --trials 1 --seed "$SEED" --headless --video --tag video --reach "$REACH"
 done
 echo "== 정지 소켓(파고 0), 예측"
-"$PY" "$HERE/run_plugbot_isaac.py" --hs 0 --strategy predictive --trials 1 --headless --video --tag video
+"$PY" "$HERE/run_plugbot_isaac.py" --hs 0 --strategy predictive --trials 1 --headless --video --tag video --reach "$REACH"
 echo "== 묶기"
 "$PY" "$HERE/../tools/make_showreel.py" --layout side --hs 6
 echo "끝: outputs/showreel_side_hs6_{compare,views}.mp4, outputs/showreel_side_hs6_compare.gif"

@@ -140,7 +140,8 @@ side 배치, 부두에 옆으로 댄 배의 롤, 조건당 30회(`outputs/experi
 
 <img src="outputs/showreel_side_hs6_compare.gif" width="900" alt="Isaac Sim에서 같은 파도(시드 2)로 찍은 추종(왼쪽)과 예측(오른쪽)">
 
-<sub>Isaac Sim 5.1 실제 렌더(RTX 5070 Laptop). 모형 파고 6 cm, 같은 파도(시드 2)에서 추종(왼쪽)과 예측(오른쪽) 모두 꽂았다.
+<sub>Isaac Sim 5.1 실제 렌더(RTX 5070 Laptop). 팔을 세운 홈 자세에서 출발해 소켓으로 다가간 뒤 꽂는다. 모형 파고 6 cm, 같은 파도(시드 2)에서
+추종(왼쪽)은 4.8초에 바로, 예측(오른쪽)은 잔잔한 순간을 기다렸다가 7.4초에 꽂아 둘 다 성공했다.
 Isaac에서는 6 cm 추종이 30회 모두 성공해 MuJoCo의 '추종 실패, 예측 성공' 장면이 나오지 않는다(아래 결과)</sub>
 
 MuJoCo에서 만든 실험을 NVIDIA Isaac Sim(PhysX 물리, RTX 렌더)으로 옮겼다. **물리 엔진이 바뀌어도 같은 결과가 나오는지**가

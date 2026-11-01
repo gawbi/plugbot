@@ -44,6 +44,9 @@ ap.add_argument("--dataset", type=int, default=0, help="성공 시행 N개를 �
 ap.add_argument("--kp", type=float, default=1000.0, help="관절 위치 제어 강성(추종이 느리면 올린다)")
 ap.add_argument("--kd", type=float, default=30.0)
 ap.add_argument("--max-effort", type=float, default=None, help="관절 최대 토크 N m(기본: URDF effort 10). MuJoCo 서보는 2.94")
+ap.add_argument("--reach", type=float, default=0.0,
+                help="0보다 크면 팔을 세운 홈 자세(plugbot.control.HOME)에서 출발해 이 시간(s) 동안 소켓 앞 시작 자세로 다가간 뒤 꽂는다"
+                     "(영상, 학습 데이터용. 성공률 실험은 0으로 MuJoCo와 같게)")
 ap.add_argument("--armature", type=float, default=None, help="관절 armature kg m^2(기본: 없음). MuJoCo SO-101 모델은 0.028")
 ap.add_argument("--tag", default="", help="결과 파일 이름 뒤에 붙인다(본 결과를 덮어쓰지 않게)")
 args = ap.parse_args()
@@ -245,9 +248,10 @@ def collision(motion, t):
 
 
 def reset_robot():
+    q0 = HOME if args.reach > 0 else START
     world.reset()  # [ISAAC]
-    robot.set_joint_positions(START, joint_indices=np.array(dof))  # [ISAAC]
-    set_arm(START)
+    robot.set_joint_positions(q0, joint_indices=np.array(dof))  # [ISAAC]
+    set_arm(q0)
 
 
 def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
@@ -270,7 +274,11 @@ def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
         est.capture(t, entrance, axis)
         e = est.estimate(t)
         q = arm_q()
-        if e is not None:
+        if t < args.reach:  # 홈 → 시작 자세(관절 공간 smoothstep). 이 경로는 MuJoCo에서 충돌 없음을 확인했다
+            u = t / args.reach
+            q_cmd = HOME + (START - HOME) * (u * u * (3 - 2 * u))
+            set_arm(q_cmd)
+        elif e is not None:
             ent_hat, ax_hat, speed = e
             rel = tip_of(q) - ent_hat
             lateral = np.linalg.norm(rel - np.dot(rel, ax_hat) * ax_hat)
