@@ -10,6 +10,7 @@ real/config/
 real/print/_sim_*.png
 # Isaac Sim에서 만드는 파일
 isaac/so101/*.usd
+isaac/so101/configuration/
 outputs/isaac_video_*
 outputs/isaac_frames_*
 outputs/_layout_chart.png

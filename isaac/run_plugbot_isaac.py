@@ -43,6 +43,9 @@ ap.add_argument("--preview", action="store_true", help="시작 자세 사진만 
 ap.add_argument("--dataset", type=int, default=0, help="성공 시행 N개를 학습 데이터로 녹화(data/isaac_<layout>/)")
 ap.add_argument("--kp", type=float, default=1000.0, help="관절 위치 제어 강성(추종이 느리면 올린다)")
 ap.add_argument("--kd", type=float, default=30.0)
+ap.add_argument("--max-effort", type=float, default=None, help="관절 최대 토크 N m(기본: URDF effort 10). MuJoCo 서보는 2.94")
+ap.add_argument("--armature", type=float, default=None, help="관절 armature kg m^2(기본: 없음). MuJoCo SO-101 모델은 0.028")
+ap.add_argument("--tag", default="", help="결과 파일 이름 뒤에 붙인다(본 결과를 덮어쓰지 않게)")
 args = ap.parse_args()
 if args.dataset and args.video:
     raise SystemExit("--dataset과 --video는 따로 실행한다(카메라 해상도가 다르다)")
@@ -58,9 +61,9 @@ from isaacsim.core.api import World  # noqa: E402  [ISAAC]
 from isaacsim.core.prims import SingleArticulation, SingleXFormPrim  # noqa: E402  [ISAAC]
 from isaacsim.core.utils.stage import add_reference_to_stage, get_current_stage  # noqa: E402  [ISAAC]
 from isaacsim.core.utils.types import ArticulationAction  # noqa: E402  [ISAAC]
-from pxr import Gf, UsdGeom, UsdPhysics  # noqa: E402
+from pxr import Gf, PhysxSchema, UsdGeom, UsdPhysics  # noqa: E402
 
-from plugbot.control import CONTROL_DT, HOME, IK, Params, SocketEstimator, home_pose  # noqa: E402
+from plugbot.control import CONTROL_DT, HOME, IK, Params, SocketEstimator, contacts, home_pose  # noqa: E402
 from plugbot.dataset import EpisodeWriter, to_lerobot_vector  # noqa: E402
 from plugbot.scene import ARM_JOINTS, BORE_R, CAM_H, CAM_W, PIN_R, Scene, ship_pose  # noqa: E402
 from plugbot.waves import ShipMotion  # noqa: E402
@@ -82,6 +85,22 @@ root = next((p.GetPath().pathString for p in stage.Traverse()
              if p.GetPath().pathString.startswith("/World/SO101") and p.HasAPI(UsdPhysics.ArticulationRootAPI)), None)
 if root is None:
     raise SystemExit("로봇 USD에서 ArticulationRoot를 못 찾았다. import_robot.py 결과를 확인한다.")
+# [ISAAC] URDF에 inertial이 없는 좌표용 링크(plug_tip, wrist_cam_link)는 PhysX가 기본 질량 1 kg을 넣어 팔이 처진다.
+# MuJoCo에서는 질량 없는 site이므로 거의 0으로 둔다(URDF의 gripper_frame_link와 같은 방식).
+for p in stage.Traverse():
+    if p.GetPath().pathString.startswith("/World/SO101") and p.GetName() in ("plug_tip", "wrist_cam_link") \
+            and p.HasAPI(UsdPhysics.RigidBodyAPI):
+        mass = UsdPhysics.MassAPI.Apply(p)
+        mass.CreateMassAttr(1e-6)
+        mass.CreateDiagonalInertiaAttr(Gf.Vec3f(1e-12, 1e-12, 1e-12))
+    # [ISAAC] URDF 가져오기 기본 드라이브는 acceleration(강성 × 관성)이라 가벼운 SO-101은 중력에 0.1 rad 넘게 처진다.
+    # MuJoCo position 액추에이터와 같게 force(토크 = kp × 오차)로 바꾼다.
+    if p.GetPath().pathString.startswith("/World/SO101") and p.HasAPI(UsdPhysics.DriveAPI):
+        UsdPhysics.DriveAPI.Get(p, "angular").GetTypeAttr().Set("force")
+        if args.max_effort is not None:
+            UsdPhysics.DriveAPI.Get(p, "angular").GetMaxForceAttr().Set(args.max_effort)
+        if args.armature is not None:
+            PhysxSchema.PhysxJointAPI.Apply(p).CreateArmatureAttr(args.armature)
 
 
 def add_wrist_camera():
@@ -106,15 +125,16 @@ if args.video or args.preview or args.dataset:
     from isaacsim.sensors.camera import Camera  # noqa: E402  [ISAAC]
     wrist_path = add_wrist_camera()
     if args.dataset:  # 실물 ACT 녹화와 같은 이름, 해상도
-        ds_cams["front"] = Camera(prim_path="/World/Env/World/Webcam", resolution=(CAM_W, CAM_H))  # [ISAAC]
+        ds_cams["front"] = Camera(prim_path="/World/Env/Webcam", resolution=(CAM_W, CAM_H))  # [ISAAC]
         if wrist_path:
             ds_cams["wrist"] = Camera(prim_path=wrist_path, resolution=(CAM_W, CAM_H))  # [ISAAC]
     else:
         for cname in ("Webcam", "ShowCam"):
-            cams[cname] = Camera(prim_path=f"/World/Env/World/{cname}", resolution=(1280, 720))  # [ISAAC]
+            cams[cname] = Camera(prim_path=f"/World/Env/{cname}", resolution=(1280, 720))  # [ISAAC]
         if wrist_path:
             cams["Wrist"] = Camera(prim_path=wrist_path, resolution=(CAM_W, CAM_H))  # [ISAAC]
-ship = SingleXFormPrim("/World/Env/World/Ship", name="ship")  # [ISAAC] 참조 안의 경로
+ship = SingleXFormPrim("/World/Env/Ship", name="ship")  # [ISAAC] 참조 안의 경로
+
 world.reset()  # [ISAAC]
 for c in list(cams.values()) + list(ds_cams.values()):
     c.initialize()  # [ISAAC]
@@ -202,6 +222,28 @@ class Recorder:
         self.w.add(t, images, to_lerobot_vector(q), to_lerobot_vector(q_cmd))
 
 
+# 충돌 판정: PhysX 접촉 API(RigidPrim 접촉 뷰)는 이 노트북에서 세그폴트가 나서, MuJoCo 실험과 같은 함수
+# (plugbot.control.contacts)를 Isaac의 관절각과 선박 자세에 적용한다. 물리 진행은 Isaac, 판정 규칙은 MuJoCo와 같다.
+judge = Scene("ship", args.layout)
+GRIP = robot.get_dof_index("gripper")  # [ISAAC]
+GRIP_ADR = judge.model.joint("gripper").qposadr[0]
+
+
+def collision(motion, t):
+    """MuJoCo plugbot.control.run_trial과 같은 분류. 접촉이 없으면 None."""
+    q = np.asarray(robot.get_joint_positions())  # [ISAAC]
+    judge.data.qpos[judge.qadr] = q[dof]
+    judge.data.qpos[GRIP_ADR] = q[GRIP]
+    judge.set_ship(*motion(t))
+    mujoco.mj_forward(judge.model, judge.data)
+    body_hit, plug_hull, _ = contacts(judge)
+    if body_hit:
+        return "그리퍼가 소켓 테두리에 닿음" if body_hit == "socket" else "로봇 몸체 충돌"
+    if plug_hull:
+        return "플러그가 소켓 밖 선체에 부딪힘"
+    return None
+
+
 def reset_robot():
     world.reset()  # [ISAAC]
     robot.set_joint_positions(START, joint_indices=np.array(dof))  # [ISAAC]
@@ -209,11 +251,13 @@ def reset_robot():
 
 
 def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
-    """plugbot.control.run_trial과 같은 상태 기계. (성공, 이유, 삽입 시각). video가 있으면 녹화하고 성공 뒤 1초 더 찍는다."""
+    """plugbot.control.run_trial과 같은 상태 기계. (성공, 이유, 삽입 시각, 첫 충돌(이유, 시각) 또는 None).
+    video가 있으면 녹화하고 성공 뒤 1초 더 찍는다. 충돌은 기록만 하고 시행을 끝내지 않는다(MuJoCo는 끝낸다)."""
     rng = np.random.default_rng(seed)
     reset_robot()
     est = SocketEstimator(strategy, p, rng)
     phase, depth_cmd, gate_t, hold_t, t = "approach", -p.hover, None, 0.0, 0.0
+    hit = None
     every = max(1, int(round(1.0 / args.video_fps / CONTROL_DT)))
     tick, done, tail, q_cmd = 0, None, 0, START.copy()
     while t < p.timeout + (1.0 if done else 0.0):
@@ -242,13 +286,17 @@ def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
             t += PHYSICS_DT
             if grab:
                 rec.grab(t, arm_q(), q_cmd)
+        if hit is None and done is None:  # MuJoCo도 제어 주기마다 접촉을 본다
+            c = collision(motion, t)
+            if c is not None:
+                hit = (c, t)
         tick += 1
         if video is not None and tick % every == 0:
             video.grab()
         if done is not None:
             tail += 1
             if video is None or tail * CONTROL_DT >= 1.0:
-                return done
+                return done + (hit,)
             continue
         _, _, entrance, axis = ship_pose(args.layout, motion, t)
         rel = tip_of(arm_q()) - entrance
@@ -259,10 +307,10 @@ def run_trial(motion, strategy, p=Params(), seed=0, video=None, rec=None):
             if hold_t >= p.hold:
                 done = (True, "", t)
                 if video is None:
-                    return done
+                    return done + (hit,)
         else:
             hold_t = 0.0
-    return done or (False, "시간 초과(걸림, 정렬 실패)", float("nan"))
+    return (done or (False, "시간 초과(걸림, 정렬 실패)", float("nan"))) + (hit,)
 
 
 def motion_for(hs, seed):
@@ -303,7 +351,7 @@ def record_dataset():
     while kept < args.dataset and k < args.dataset * 3:
         hs = float(rng.uniform(0.0, args.hs))
         writer = EpisodeWriter(out, kept, ds_cams, fps=30)
-        ok, why, _ = run_trial(motion_for(hs, 1000 + k), args.strategy, seed=1000 + k, rec=Recorder(writer))
+        ok, why, _, _ = run_trial(motion_for(hs, 1000 + k), args.strategy, seed=1000 + k, rec=Recorder(writer))
         if ok and len(writer) > 0:
             writer.close({"layout": args.layout, "hs": hs, "seed": 1000 + k, "strategy": args.strategy, "success": True,
                           "sim": "isaac", "task": "Insert the plug into the socket"})
@@ -328,19 +376,28 @@ def main():
     rows = []
     for k in range(args.seed, args.seed + args.trials):
         video = VideoOut(f"{args.layout}_hs{args.hs * 100:.0f}_{args.strategy}") if (args.video and k == args.seed) else None
-        ok, why, t_ins = run_trial(motion_for(args.hs, k), args.strategy, seed=k, video=video)
+        ok, why, t_ins, hit = run_trial(motion_for(args.hs, k), args.strategy, seed=k, video=video)
         if video is not None:
             video.close()
-        rows.append({"시드": k, "성공": ok, "이유": why, "삽입 시각 s": t_ins})
-        print(f"[{k - args.seed + 1}/{args.trials}] 시드 {k} {'성공' if ok else '실패'} {why}")
+        ok_mj = ok and (hit is None or hit[1] > t_ins)  # MuJoCo는 꽂기 전에 부딪히면 그 자리에서 실패로 끝낸다
+        rows.append({"시드": k, "성공": ok, "이유": why, "삽입 시각 s": t_ins,
+                     "첫 충돌": None if hit is None else hit[0], "첫 충돌 시각 s": None if hit is None else hit[1],
+                     "MuJoCo 기준 성공": ok_mj})
+        hit_txt = "" if hit is None else f" (충돌 {hit[1]:.2f} s: {hit[0]})"
+        print(f"[{k - args.seed + 1}/{args.trials}] 시드 {k} {'성공' if ok else '실패'} {why}{hit_txt}")
     rate = float(np.mean([r["성공"] for r in rows]))
+    rate_mj = float(np.mean([r["MuJoCo 기준 성공"] for r in rows]))
     ref = mujoco_reference()
     ref_txt = "" if ref is None else f" (MuJoCo 같은 조건 30회: {ref * 100:.0f}%)"
-    print(f"Isaac Sim, {args.layout}, Hs {args.hs * 100:.0f} cm, {args.strategy}: 성공률 {rate * 100:.0f}%{ref_txt}")
-    out = OUT / f"isaac_{args.layout}_hs{args.hs * 100:.0f}_{args.strategy}.json"
+    print(f"Isaac Sim, {args.layout}, Hs {args.hs * 100:.0f} cm, {args.strategy}: 성공률 {rate * 100:.0f}%, "
+          f"충돌을 실패로 세면 {rate_mj * 100:.0f}%{ref_txt}")
+    tag = f"_{args.tag}" if args.tag else ""
+    out = OUT / f"isaac_{args.layout}_hs{args.hs * 100:.0f}_{args.strategy}{tag}.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps({"layout": args.layout, "berth": args.berth, "hs": args.hs, "strategy": args.strategy,
-                               "성공률": rate, "MuJoCo 성공률": ref, "시행": rows}, ensure_ascii=False, indent=1))
+                               "kp": args.kp, "kd": args.kd, "max_effort": args.max_effort, "armature": args.armature,
+                               "성공률": rate, "충돌을 실패로 센 성공률": rate_mj, "MuJoCo 성공률": ref,
+                               "시행": rows}, ensure_ascii=False, indent=1))
     app.close()
 
 

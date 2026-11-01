@@ -13,9 +13,10 @@ if [ -z "$PY" ]; then  # 지정이 없으면 압축 설치(python.sh) → pip �
   done
 fi
 [ -n "$PY" ] && [ -x "$PY" ] || { echo "Isaac Sim 파이썬을 찾을 수 없다(ISAAC_SIM=설치폴더 또는 ISAAC_PY=파이썬 경로로 지정)"; exit 1; }
+[ -d "$HOME/isaacsim_compat/lib" ] && export LD_LIBRARY_PATH="$HOME/isaacsim_compat/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"  # Ubuntu 26.04: 24.04의 libxml2.so.2, libGLU를 풀어 둔 곳(URDF 가져오기에 필요)
+export OMNI_KIT_ACCEPT_EULA=YES  # pip 설치판은 첫 실행 때 사용권 동의를 키보드로 묻는다. 화면 없이 돌리려면 미리 동의
 "$PY" -c "import isaacsim" 2>/dev/null || { echo "$PY 에서 isaacsim을 import할 수 없다"; exit 1; }
 echo "Isaac Sim 파이썬: $PY"
-export OMNI_KIT_ACCEPT_EULA=YES  # pip 설치판은 첫 실행 때 사용권 동의를 키보드로 묻는다. 화면 없이 돌리려면 미리 동의
 
 echo "== 1/5 의존성 (Isaac Sim 파이썬). numpy는 Isaac Sim 것을 그대로 쓴다"
 "$PY" -m pip install "mujoco>=3.3" imageio imageio-ffmpeg pillow scipy

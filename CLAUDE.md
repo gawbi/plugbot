@@ -4,11 +4,15 @@
 - 「2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤」 개인부문 **본선 진출**. 본선 2026.11.8~11.10(부산~오사카 선상).
 - 팀장 김광빈(이 저장소 주인). 작품: 전기차 충전구에서 배운 '꽂기'를 흔들리는 전기 선박 소켓으로 옮기는 로봇팔.
 - 맥에서 MuJoCo 실험, 실물 시연 소프트웨어(`real/`), Isaac Sim 자산과 스크립트(`isaac/`)를 만들어 두었다.
-  **Isaac Sim 스크립트는 GPU가 없어 맥에서 한 번도 실행하지 못했다.** 이 노트북(RTX 5070 Ti Laptop, Ubuntu, Isaac Sim 5.1)에서
-  처음 돌린다.
+  Isaac Sim 스크립트는 2026-11-01 이 노트북(RTX 5070 Laptop 8 GB, Ubuntu 26.04, Isaac Sim 5.1)에서 처음 돌렸다.
+  결과와 고친 것: `outputs/ISAAC_RESULTS.md`.
 
 ## 이 노트북의 환경 (2026-11, 사용자가 알려 줌)
-- HP OMEN 16, Ubuntu 24.04, GPU 모드 `prime-select nvidia`.
+- HP OMEN 16, **Ubuntu 26.04**(Isaac 5.1 지원 OS 밖), GPU RTX 5070 Laptop 8 GB, 모드 `prime-select nvidia`.
+- 드라이버는 **580-open**이어야 한다. 595에서는 Isaac 시작 직후 `librtx.scenedb` 세그폴트. 닫힌 모듈은 이 GPU를 못 쓴다.
+- 26.04에 없는 라이브러리(libxml2.so.2, libicu74, libGLU, libOpenGL)를 `~/isaacsim_compat/lib`에 풀어 두었다.
+  셸 스크립트는 스스로 `LD_LIBRARY_PATH`에 넣는다. 파이썬을 직접 부를 때는
+  `LD_LIBRARY_PATH=~/isaacsim_compat/lib OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1`을 붙인다.
 - Isaac Sim 5.1.0은 **pip로 `~/isaacsim_env`(Python 3.11, uv 가상환경)에 설치**했다. 설치 폴더와 `python.sh`가 없다.
   - 파이썬: `~/isaacsim_env/bin/python`. 직접 부르면 `source activate`는 필요 없다.
   - `isaac/setup_gpu.sh`는 이 경로를 스스로 찾는다. README의 `./python.sh ...` 명령은 이 파이썬으로 바꿔 실행한다.

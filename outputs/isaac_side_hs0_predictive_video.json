@@ -1,0 +1,24 @@
+{
+ "layout": "side",
+ "berth": "alongside",
+ "hs": 0.0,
+ "strategy": "predictive",
+ "kp": 1000.0,
+ "kd": 30.0,
+ "max_effort": null,
+ "armature": null,
+ "성공률": 1.0,
+ "충돌을 실패로 센 성공률": 1.0,
+ "MuJoCo 성공률": 1.0,
+ "시행": [
+  {
+   "시드": 0,
+   "성공": true,
+   "이유": "",
+   "삽입 시각 s": 1.8200000000000014,
+   "첫 충돌": null,
+   "첫 충돌 시각 s": null,
+   "MuJoCo 기준 성공": true
+  }
+ ]
+}

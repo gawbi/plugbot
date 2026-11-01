@@ -1,8 +1,9 @@
-# Isaac Sim 5.1 (GPU 노트북: RTX 5070 Ti, Ubuntu)
+# Isaac Sim 5.1 (GPU 노트북: RTX 5070 Laptop, Ubuntu 26.04)
 
 MuJoCo 실험(파고별 삽입 성공률)을 Isaac Sim에서 다시 돌리고, 발표용 고화질 영상과 ACT 학습 데이터를 만든다.
 기본 배치는 본선과 같은 **side**(현측에 세운 소켓, L자 플러그, 부두에 옆으로 댄 배의 롤)다. 예선 배치는 `--layout top`.
-이 폴더의 자산과 스크립트는 맥에서 만들었다. Isaac Sim이 필요한 두 스크립트는 **실제 Isaac에서 실행해 보지 못했다**.
+이 폴더의 자산과 스크립트는 맥에서 만들었고, 2026-11-01 GPU 노트북에서 처음 실행해 고쳤다(side 배치 실험, 미리보기, 영상).
+결과와 고친 것: [../outputs/ISAAC_RESULTS.md](../outputs/ISAAC_RESULTS.md). top 배치와 `--dataset`은 아직 돌리지 않았다.
 
 ## 맥에서 만들고 확인한 것
 
