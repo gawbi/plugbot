@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlugBot 사람 대 로봇</title>
+<style>
+:root { --bg: #07111f; --card: #0f2038; --line: #1d3557; --text: #e8eef6; --muted: #8aa0bb;
+  --human: #f59e0b; --robot: #2dd4bf; --ok: #22c582; --bad: #ef5350; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.5 "Noto Sans KR", system-ui, "Apple SD Gothic Neo", sans-serif; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 18px 16px 28px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+h1 { margin: 0; font-size: 26px; font-weight: 900; }
+.tag { color: var(--muted); font-size: 13px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.step { font-size: 13px; font-weight: 700; color: var(--muted); }
+h2 { margin: 2px 0 10px; font-size: 22px; }
+.big { font-size: 64px; font-weight: 900; letter-spacing: -2px; line-height: 1; font-variant-numeric: tabular-nums; }
+.btn { border: 0; border-radius: 14px; padding: 16px 20px; font: inherit; font-size: 20px; font-weight: 900; cursor: pointer; width: 100%; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.human { background: var(--human); color: #1a1205; }
+.robot { background: var(--robot); color: #04121f; }
+.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); font-size: 15px; padding: 10px 12px; width: auto; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.verdict { font-size: 28px; font-weight: 900; min-height: 42px; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+.bar { height: 10px; background: #0b1729; border-radius: 6px; overflow: hidden; margin: 10px 0; }
+.bar > div { height: 100%; width: 0; background: var(--human); }
+.waves button.on { outline: 3px solid var(--robot); }
+img.eye { width: 100%; border-radius: 12px; border: 1px solid var(--line); background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+.hint { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>사람 대 로봇: 흔들리는 배에 충전 플러그 꽂기</h1>
+      <div class="tag">PlugBot, 팀 Land2Sea, <span id="dev"></span></div></div>
+    <div class="row waves" id="waves">
+      <span class="hint">파도</span>
+      <button class="btn ghost" data-l="calm">잔잔</button>
+      <button class="btn ghost" data-l="normal">보통</button>
+      <button class="btn ghost" data-l="rough">출렁</button>
+      <button class="btn ghost" data-l="stop">멈춤</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div style="display:grid;gap:16px">
+      <div class="card">
+        <div class="step">1단계</div>
+        <h2>직접 꽂아 보세요 (리더 팔, <span id="lim">20</span>초)</h2>
+        <div class="row" style="justify-content:space-between">
+          <div class="big" id="ht">0.0</div>
+          <div class="verdict" id="hv"></div>
+        </div>
+        <div class="bar"><div id="hbar"></div></div>
+        <div class="row">
+          <button class="btn human" id="hstart" style="flex:1">도전 시작 (H)</button>
+          <button class="btn ghost" id="hok">성공 판정 (스페이스)</button>
+        </div>
+        <p class="hint">흔들리는 소켓에 L자 플러그를 끝까지 꽂으면 성공. 리더 팔은 천천히 움직여 주세요.</p>
+      </div>
+      <div class="card">
+        <div class="step">2단계</div>
+        <h2>로봇 차례: 배 도착, 충전 시작</h2>
+        <div class="row" style="justify-content:space-between">
+          <div class="big" id="rt">0.0</div>
+          <div class="verdict" id="rv"></div>
+        </div>
+        <button class="btn robot" id="rstart">충전 시작 (R)</button>
+        <p class="hint">로봇은 0.1초 뒤 소켓 위치를 예측하고, 잔잔해지는 순간에만 들어갑니다. 로봇이 움직이는 동안 손은 부스 밖에.</p>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:16px">
+      <div class="card">
+        <div class="step">로봇의 눈 (앞 카메라)</div>
+        <img class="eye" src="/api/eye.mjpg" alt="앞 카메라 영상">
+      </div>
+      <div class="card">
+        <div class="step">기록</div>
+        <table><thead><tr><th>판</th><th>사람</th><th>로봇</th></tr></thead><tbody id="rounds"></tbody></table>
+        <p class="hint" id="tot"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (u, b) => fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b || {}) });
+document.querySelectorAll("#waves button").forEach((b) => b.onclick = () => post("/api/wave", { level: b.dataset.l }));
+$("hstart").onclick = () => post("/api/human/start");
+$("hok").onclick = () => post("/api/human/success");
+$("rstart").onclick = () => post("/api/robot/start").then((r) => { if (!r.ok) r.text().then((t) => alertBox(t)); });
+function alertBox(t) { $("rv").textContent = "로봇 연결 필요"; $("rv").className = "verdict bad"; console.log(t); }
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); $("hok").click(); }
+  if (e.key === "h" || e.key === "H") $("hstart").click();
+  if (e.key === "r" || e.key === "R") $("rstart").click();
+});
+const fmt = (t) => t == null ? "실패" : `${t.toFixed(1)}초`;
+async function tick() {
+  try {
+    const s = await (await fetch("/api/state")).json();
+    $("lim").textContent = s.challenge_s;
+    $("dev").textContent = `갑판 ${s.shaker ? "연결" : "가짜"}, 로봇 ${s.robot_backend || "없음"}`;
+    document.querySelectorAll("#waves button").forEach((b) => b.classList.toggle("on", b.dataset.l === s.wave));
+    const h = s.human;
+    if (h) {
+      const done = h.result;
+      const t = done ? (done.ok ? done.t : s.challenge_s) : Math.min(h.elapsed, s.challenge_s);
+      $("ht").textContent = t.toFixed(1);
+      $("hbar").style.width = `${Math.min(100, (t / s.challenge_s) * 100)}%`;
+      $("hv").textContent = done ? (done.ok ? "성공" : "시간 초과") : "도전 중";
+      $("hv").className = "verdict " + (done ? (done.ok ? "ok" : "bad") : "");
+    }
+    const r = s.robot;
+    if (r) {
+      $("rt").textContent = (r.result && r.result.t != null ? r.result.t : r.elapsed).toFixed(1);
+      $("rv").textContent = r.running ? "꽂는 중" : (r.result.ok ? "성공" : "실패");
+      $("rv").className = "verdict " + (r.running ? "" : (r.result.ok ? "ok" : "bad"));
+      $("rstart").disabled = r.running;
+    }
+    $("rounds").innerHTML = s.rounds.map((x, i) => `<tr><td>${s.totals.n - s.rounds.length + i + 1}</td><td>${fmt(x.human)}</td><td>${fmt(x.robot)}</td></tr>`).reverse().join("");
+    $("tot").textContent = s.totals.n ? `누적 ${s.totals.n}판: 사람 성공 ${s.totals.human}, 로봇 성공 ${s.totals.robot}` : "";
+  } catch (e) {}
+  setTimeout(tick, 150);
+}
+tick();
+</script>
+</body>
+</html>
