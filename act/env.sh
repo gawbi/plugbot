@@ -9,8 +9,9 @@ LEROBOT_BIN="${LEROBOT_BIN:-$HOME/lerobot_env/bin}"
 HF_USER="${HF_USER:-local}"
 
 # 포트(lerobot-find-port로 확인). 보정 id는 맥에서 쓴 것과 같아야 한다(보정 파일 이름)
-F_PORT="${F_PORT:-/dev/ttyACM0}"
-L_PORT="${L_PORT:-/dev/ttyACM1}"
+# USB 고유번호 경로(꽂는 순서가 바뀌어도 같다). 2026-11-02 서보 전압으로 확인: 팔로워 12.3 V, 리더 5.1 V
+F_PORT="${F_PORT:-/dev/serial/by-id/usb-1a86_USB_Single_Serial_5AE6083026-if00}"
+L_PORT="${L_PORT:-/dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79015054-if00}"
 F_ID="${F_ID:-plug_follower}"
 L_ID="${L_ID:-plug_leader}"
 
