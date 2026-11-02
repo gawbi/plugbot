@@ -19,3 +19,6 @@ data/
 outputs/showreel_*.mp4
 # 웹 시연 캐시(영상, 점수판)
 web/cache/
+# 개인정보가 든 대회 서류, 미리보기 영상
+outputs/*.pdf
+outputs/*.mp4
