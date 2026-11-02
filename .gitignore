@@ -22,3 +22,6 @@ web/cache/
 # 개인정보가 든 대회 서류, 미리보기 영상
 outputs/*.pdf
 outputs/*.mp4
+# tools/collect_stl.py 결과
+stl_bundle/
+stl_bundle.zip

@@ -1,7 +1,8 @@
 # PlugBot 시연 키트 출력, 조립 가이드
 
 설계 파일: `cad/make_parts.py` (CadQuery). 치수를 바꾸면 이 파일의 상수를 고치고 다시 실행한다.
-출력 파일: `cad/out/*.stl`, 솔리드웍스 등에서 열 파일: `cad/out/*.step`.
+출력 파일: `cad/out/*.stl`, 솔리드웍스 등에서 열 파일: `cad/out/*.step`. 기타(원통 등): `cad/extra/`.
+출력용만 한 폴더와 zip으로 모으기(윈도우, 맥 공통, 영문 파일 이름): `python tools/collect_stl.py` → `stl_bundle/`, `stl_bundle.zip`.
 
 본선 배치는 side(세운 소켓, L자 플러그)다. 예선 배치(top) 부품은 맨 아래 표.
 
