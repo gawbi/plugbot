@@ -70,3 +70,13 @@ bash act/rollout.sh act_v1 eval static
 - 나쁜 에피소드 삭제와 합치기는 `ACT_PLAN.md` 3.7절(`lerobot-edit-dataset`).
 - 시뮬레이션 시범은 실물 50회로 먼저 학습한 뒤 섞을지 정한다(`ACT_PLAN.md` 2절).
   MuJoCo: `.venv/bin/python make_sim_dataset.py --episodes 50 --randomize`, Isaac: `isaac/run_plugbot_isaac.py --hs 0.06 --dataset 50 --headless`.
+
+## 문제 해결 (실물에서 겪은 것)
+
+| 증상 | 원인 | 해결 |
+|---|---|---|
+| 원격조종이 켜지자마자 꺼지거나 중간에 끊김, `There is no status packet`(어깨 2번 등), `No such device` | 로봇 보드 두 개를 **USB 허브(카드 리더 달린 동글)**에 꽂았더니, 팔로워에 힘이 들어가는 순간 허브가 통째로 리셋됐다(커널 기록에 허브 재연결이 수십 번) | 리더, 팔로워 보드를 **노트북 본체 USB 포트에 하나씩 직접** 꽂는다. 노트북은 충전기 연결. 허브는 카메라에만 |
+| 팔로워 포트는 열리는데 모터 0개 응답 | 팔로워 12 V 전원이나 보드에서 첫 모터로 가는 3핀 케이블 접촉 | 12 V 어댑터(멀티탭 스위치), 3핀 케이블을 끝까지 꽂는다. 리더 보드와 노란 점퍼 자리를 비교 |
+| `Failed to find Rerun Viewer executable in PATH` | rerun이 가상환경에만 있다 | `act/env.sh`가 PATH에 넣는다(직접 명령을 칠 때는 `export PATH=~/lerobot_env/bin:$PATH`) |
+| 보정 때 팔로워가 안 움직임(토크 걸림) | 기존 보정 파일이 있으면 LeRobot이 먼저 "쓸지 새로 할지" 묻는데, 그동안 토크가 켜져 있다 | 그 질문에 `c` + Enter(팔을 받친 채) |
+| 포트 권한 없음 | dialout 그룹이 아직 적용 안 됨 | 로그아웃 후 다시 로그인(임시: `sudo chmod 666 /dev/ttyACM*`) |
