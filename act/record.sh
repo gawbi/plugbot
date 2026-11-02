@@ -2,6 +2,8 @@
 # 시범 녹화(ACT_PLAN.md 3.5). 사용: bash act/record.sh static|moving [에피소드 수=25]
 #   static: 정지 소켓(25 s), moving: 흔들림 갑판(30 s). 이미 있으면 이어서 녹화한다(수는 '추가할 개수').
 #   녹화 중 키: → 다음(일찍 끝냄), ← 다시, Esc 종료(터미널 입력이면 n, r, q)
+#   녹화 중 Rerun 창에 카메라와 관절이 뜬다. 끝에 나오는 Cadence가 30 Hz 가까이인지 본다.
+#   화면 때문에 느려지면(예: 20 Hz 아래) SHOW=false bash act/record.sh ... 로 끄고, 녹화 뒤 lerobot-dataset-viz로 확인
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 KIND="${1:?static 또는 moving}"; N="${2:-25}"
@@ -20,4 +22,4 @@ exec "$LEROBOT_BIN/lerobot-record" \
   --dataset.repo_id="$REPO" --dataset.no_stamp=true --dataset.single_task="$TASK" \
   --dataset.num_episodes="$N" --dataset.episode_time_s="$SEC" --dataset.reset_time_s=20 \
   --dataset.streaming_encoding=true --dataset.encoder_threads=2 \
-  --dataset.push_to_hub="$PUSH" --dataset.private=true --display_data=false "${EXTRA[@]}"
+  --dataset.push_to_hub="$PUSH" --dataset.private=true --display_data="${SHOW:-true}" "${EXTRA[@]}"
