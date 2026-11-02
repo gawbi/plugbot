@@ -1,0 +1,58 @@
+{
+ "note": "물리 충돌 없는 운동학 시각화 기준. 검증 결과가 아니다",
+ "hs_real_m": 0.6,
+ "rows": [
+  {
+   "seed": 0,
+   "connected": true,
+   "t_connect_s": 4.77
+  },
+  {
+   "seed": 1,
+   "connected": true,
+   "t_connect_s": 4.83
+  },
+  {
+   "seed": 2,
+   "connected": true,
+   "t_connect_s": 4.97
+  },
+  {
+   "seed": 3,
+   "connected": true,
+   "t_connect_s": 5.77
+  },
+  {
+   "seed": 4,
+   "connected": true,
+   "t_connect_s": 15.03
+  },
+  {
+   "seed": 5,
+   "connected": true,
+   "t_connect_s": 15.17
+  },
+  {
+   "seed": 6,
+   "connected": true,
+   "t_connect_s": 15.13
+  },
+  {
+   "seed": 7,
+   "connected": true,
+   "t_connect_s": 6.07
+  },
+  {
+   "seed": 8,
+   "connected": true,
+   "t_connect_s": 11.73
+  },
+  {
+   "seed": 9,
+   "connected": true,
+   "t_connect_s": 5.77
+  }
+ ],
+ "connected": 10,
+ "trials": 10
+}
