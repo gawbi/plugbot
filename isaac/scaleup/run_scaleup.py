@@ -33,6 +33,8 @@ ap.add_argument("--frames-dir", default=str(ROOT / "data" / "scaleup_frames"))
 ap.add_argument("--trials", type=int, default=0, help="0이면 영상 1회. N이면 렌더 없이 시드 0..N-1을 센다")
 ap.add_argument("--fps", type=int, default=30)
 ap.add_argument("--max-frames", type=int, default=0, help="0보다 크면 이만큼만 렌더(구도 확인용)")
+ap.add_argument("--replay", default="", help="SO-101 시범 에피소드 폴더(data/isaac_side/episode_XXXX). 그 궤적을 UR10e로 옮겨 재생한다\n"
+                "(이종 원격조종 시각화: 리더 팔 대신 녹화된 시범)")
 args = ap.parse_args()
 
 from isaacsim import SimulationApp  # noqa: E402
@@ -49,6 +51,7 @@ from pxr import Gf, Sdf, UsdGeom, UsdLux, UsdPhysics, UsdShade, Vt  # noqa: E402
 from scipy.spatial.transform import Rotation  # noqa: E402
 
 from plugbot.control import Params, SocketEstimator  # noqa: E402
+from plugbot.dataset import JOINT_NAMES  # noqa: E402
 from plugbot.waves import ShipMotion  # noqa: E402
 
 # ---------- 치수(m). 근거는 README.md ----------
@@ -503,6 +506,122 @@ def episode(seed, render=True, frames_dir=None):
     return t_ins is not None, t_ins, log
 
 
+def socket_basis(axis):
+    """소켓 좌표계(열: x = 위쪽에 가깝게, y, z = 축 바깥)."""
+    z = axis / np.linalg.norm(axis)
+    x = np.array([0, 0, 1.0]) - np.dot([0, 0, 1.0], z) * z
+    x /= np.linalg.norm(x)
+    return np.stack([x, np.cross(z, x), z], 1)
+
+
+def grow(local):
+    """모형 소켓 기준 상대 위치 → 실제 크기. 소켓 5 cm 안은 커넥터 배율(×5) 그대로, 먼 곳은 덜 키워 UR10e 작업 범위에 넣는다."""
+    r = np.linalg.norm(local)
+    if r <= 0.05:
+        return local * K_CONN
+    return local / r * (0.05 * K_CONN + 2.0 * (r - 0.05))
+
+
+def replay_targets(ep_dir):
+    """SO-101 시범(관절, 30 fps) → 각 시각의 (핀 끝의 모형 소켓 기준 상대 위치, 핀 방향) — 소켓 좌표계."""
+    import mujoco
+    from plugbot.scene import Scene, ship_pose
+    meta = json.loads((Path(ep_dir) / "meta.json").read_text())
+    d = np.load(Path(ep_dir) / "data.npz")
+    kin = Scene("car", "side")
+    kd = mujoco.MjData(kin.model)
+    sm = ShipMotion(meta["hs"], seed=meta["seed"], berth="alongside") if meta["hs"] > 0 else (lambda t: (np.zeros(3), 0.0, 0.0))
+    out = []
+    for t, st in zip(d["timestamp"], d["state"]):
+        kd.qpos[:] = 0
+        kd.qpos[kin.qadr] = np.deg2rad(st[:5])
+        mujoco.mj_kinematics(kin.model, kd)
+        tip = kd.site_xpos[kin.tip_site].copy()
+        pin = kd.xmat[kin.gripper_body].reshape(3, 3) @ kin.pin_axis
+        _, _, ent, axis = ship_pose("side", sm, float(t))
+        B = socket_basis(axis)
+        out.append((float(t), B.T @ (tip - ent), B.T @ pin))
+    return meta, out
+
+
+def episode_replay(ep_dir, seed, frames_dir=None):
+    """녹화된 SO-101 시범을 실제 크기 소켓 기준으로 옮겨 UR10e가 따라 한다. 소켓 위치는 시뮬레이션의 참값을 쓴다
+    (실제로는 카메라로 재야 한다). 사람은 소켓 기준으로만 움직이고, 배 운동 보정은 시스템이 한다는 구성이다."""
+    ep_meta, traj = replay_targets(ep_dir)
+    motion = ship_motion(seed)
+    q, qd, q_goal, qd_ff, tgt, started = Q_HOME.copy(), np.zeros(6), Q_HOME.copy(), np.zeros(6), None, False
+    dt = 1.0 / args.fps
+    set_led(False)
+    hold_t, t_ins, t, frame, k, captured = 0.0, None, 0.0, 0, 0, None
+    # 시작 동기화: UR10e를 SO-101 첫 자세에 대응하는 자세에 두고 시작한다(멀리서 따라오느라 늦지 않게)
+    _, _, ent0, axis0 = socket_pose(motion, 0.0)
+    B0 = socket_basis(axis0)
+    z0 = B0 @ traj[0][2]
+    x0 = np.array([0, 0, 1.0]) - np.dot([0, 0, 1.0], z0) * z0
+    x0 /= np.linalg.norm(x0)
+    r0 = Rotation.from_matrix(np.stack([x0, np.cross(z0, x0), z0], 1)).as_quat()
+    q0, ok0 = ik.compute_inverse_kinematics("tool0", ent0 + B0 @ grow(traj[0][1]) - z0 * TIP_L,
+                                            np.array([r0[3], r0[0], r0[1], r0[2]]), warm_start=Q_HOME)
+    if ok0:
+        q, q_goal = np.asarray(q0), np.asarray(q0)
+    t_end = traj[-1][0] + 2.5
+    while t < t_end:
+        o, R, ent, axis = socket_pose(motion, t)
+        ship.set_world_pose(position=o, orientation=Rotation.from_matrix(R).as_quat()[[3, 0, 1, 2]])  # [ISAAC]
+        while k + 1 < len(traj) and traj[k + 1][0] <= t:
+            k += 1
+        _, rel, pin = traj[k]
+        B = socket_basis(axis)
+        g = grow(rel)
+        if captured:  # 자동 모드와 같은 가정: 포착 뒤 옆 방향은 깔때기와 순응 손목이 맞추고, 깊이는 사람 입력을 따른다
+            g, pin = np.array([0.0, 0.0, g[2]]), np.array([0.0, 0.0, -1.0])
+        tip_goal = ent + B @ g
+        z = B @ pin  # 핀 방향(실제 소켓 좌표계로 옮김) = tool0 z
+        x = np.array([0, 0, 1.0]) - np.dot([0, 0, 1.0], z) * z
+        x /= np.linalg.norm(x)
+        rot = Rotation.from_matrix(np.stack([x, np.cross(z, x), z], 1))
+        pos = tip_goal - z * TIP_L
+        if tgt is None:
+            tgt = (pos, rot)
+        a = 1.0 - np.exp(-dt / TAU_CAPTURED)  # 사람 입력은 바로 따른다(시범 궤적 자체가 매끄럽다)
+        tgt = (tgt[0] + a * (pos - tgt[0]), tgt[1] * Rotation.from_rotvec(a * (tgt[1].inv() * rot).as_rotvec()))
+        qf = tgt[1].as_quat()
+        q_ik, ok = ik.compute_inverse_kinematics("tool0", tgt[0], np.array([qf[3], qf[0], qf[1], qf[2]]), warm_start=q_goal)
+        if ok:
+            q_ik = np.asarray(q_ik)
+            qd_ff = (q_ik - q_goal) / dt if started else np.zeros(6)
+            q_goal, started = q_ik, True
+        qd_cmd = np.clip(qd_ff + KP_JOINT * (q_goal - q), -QD_MAX, QD_MAX)
+        qd = qd + np.clip(qd_cmd - qd, -QDD_MAX * dt, QDD_MAX * dt)
+        q = q + qd * dt
+        p_t, R_t = fk_tool(q)
+        tip = p_t + R_t[:, 2] * TIP_L
+        rel_t = tip - ent
+        depth = -float(np.dot(rel_t, axis))
+        lat = float(np.linalg.norm(rel_t + depth * axis))
+        if captured is None and depth >= 0.0:
+            captured = lat < CONE_TOP_R - PIN_R  # 깔때기 포착 반경 95 mm
+        phase = "connected" if t_ins is not None else ("insert" if depth > -0.02 else "teleop")
+        if t_ins is None and captured and depth >= P.depth_goal and lat < BORE_R - PIN_R + 0.002:
+            hold_t += dt
+            if hold_t >= P.hold:
+                t_ins = t
+                t_end = max(t_end, t + 2.5)
+                set_led(True)
+        elif t_ins is None:
+            hold_t = 0.0
+        if frames_dir is not None:
+            update_sea(t)
+            update_cable(p_t + R_t[:, 2] * (ADAPTER_L + 0.06) - R_t[:, 0] * BODY_R, R_t[:, 2])
+            robot.set_joint_positions(q, joint_indices=np.array(dof))  # [ISAAC] 운동학 재생
+            world.step(render=True)  # [ISAAC]
+            save_frames(frames_dir, frame, t, phase)
+            meta[-1]["so101_frame"] = k
+            frame += 1
+        t += dt
+    return t_ins is not None, t_ins, ep_meta
+
+
 def save_frames(d, k, t, phase):
     from PIL import Image
     for name, c in cam_objs.items():
@@ -539,9 +658,15 @@ else:
     robot.set_joint_positions(Q_HOME, joint_indices=np.array(dof))
     for _ in range(10):  # 렌더 결과가 따라오도록 몇 장 그린다
         world.step(render=True)  # [ISAAC]
-    ok, t_ins, log = episode(args.seed, render=True, frames_dir=fd)
+    if args.replay:
+        move_cam("/World/CamWide", *WIDE_PATH[1])
+        ok, t_ins, ep_meta = episode_replay(args.replay, args.seed, frames_dir=fd)
+        extra = {"replay": str(args.replay), "so101_episode": ep_meta}
+    else:
+        ok, t_ins, log = episode(args.seed, render=True, frames_dir=fd)
+        extra = {}
     (fd / "run.json").write_text(json.dumps({"seed": args.seed, "hs_real_m": args.hs_model * K_LEN, "connected": ok,
-                                             "t_connect_s": t_ins, "frames": meta}, ensure_ascii=False))
+                                             "t_connect_s": t_ins, "frames": meta, **extra}, ensure_ascii=False))
     print(f"seed {args.seed}: {'연결' if ok else '실패'} {t_ins}, 프레임 {len(meta)}장 → {fd}")
 sys.stdout.flush()
 app.close()
