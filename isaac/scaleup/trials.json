@@ -5,52 +5,52 @@
   {
    "seed": 0,
    "connected": true,
-   "t_connect_s": 4.77
+   "t_connect_s": 15.43
   },
   {
    "seed": 1,
    "connected": true,
-   "t_connect_s": 4.83
+   "t_connect_s": 8.3
   },
   {
    "seed": 2,
    "connected": true,
-   "t_connect_s": 4.97
+   "t_connect_s": 14.9
   },
   {
    "seed": 3,
    "connected": true,
-   "t_connect_s": 5.77
+   "t_connect_s": 7.37
   },
   {
    "seed": 4,
    "connected": true,
-   "t_connect_s": 15.03
+   "t_connect_s": 25.83
   },
   {
    "seed": 5,
    "connected": true,
-   "t_connect_s": 15.17
+   "t_connect_s": 16.83
   },
   {
    "seed": 6,
    "connected": true,
-   "t_connect_s": 15.13
+   "t_connect_s": 18.13
   },
   {
    "seed": 7,
    "connected": true,
-   "t_connect_s": 6.07
+   "t_connect_s": 11.2
   },
   {
    "seed": 8,
    "connected": true,
-   "t_connect_s": 11.73
+   "t_connect_s": 13.43
   },
   {
    "seed": 9,
    "connected": true,
-   "t_connect_s": 5.77
+   "t_connect_s": 13.27
   }
  ],
  "connected": 10,

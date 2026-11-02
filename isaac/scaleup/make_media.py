@@ -2,7 +2,8 @@
 
 모든 프레임에 '실제 크기 확장 시각화(Isaac Sim)'와, 학습 정책이나 검증 결과가 아니라는 설명을 넣는다.
 실행: ~/plugbot/.venv/bin/python isaac/scaleup/make_media.py [--frames data/scaleup_frames]
-결과: outputs/scaleup_wide.mp4, scaleup_close.mp4, scaleup_side_by_side.mp4(mp4는 커밋하지 않음), outputs/scaleup.gif
+결과: outputs/scaleup_edit.mp4(바다 → 넓은 → 근접 → 넓은 편집본), scaleup_{sea,wide,close,side_by_side}.mp4
+      (mp4는 커밋하지 않음), outputs/scaleup.gif(편집본)
 """
 
 import argparse
@@ -50,6 +51,21 @@ def caption(img, t, phase, scale=1.0):
     return np.asarray(im)
 
 
+def shot_plan(meta):
+    """편집본의 장면 순서: 바다(전체 상황) → 넓은 시점(접근, 대기) → 근접(삽입 0.5 s 전부터 연결 1.5 s 뒤까지) → 넓은 시점."""
+    t_ins = next((m["t"] for m in meta if m["phase"] == "insert"), None)
+    t_con = next((m["t"] for m in meta if m["phase"] == "connected"), None)
+    plan = []
+    for m in meta:
+        if m["t"] < 3.5:
+            plan.append("sea")
+        elif t_ins is not None and t_ins - 0.5 <= m["t"] and (t_con is None or m["t"] <= t_con + 1.5):
+            plan.append("close")
+        else:
+            plan.append("wide")
+    return plan
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--frames", default=str(ROOT / "data" / "scaleup_frames"))
@@ -57,24 +73,27 @@ def main():
     a = ap.parse_args()
     fd = Path(a.frames)
     meta = json.loads((fd / "run.json").read_text())["frames"]
+    views = [v for v in ("sea", "wide", "close") if (fd / v).exists()]
+    names = ["edit", "side_by_side"] + views
     writers = {k: imageio.get_writer(str(OUT / f"scaleup_{k}.mp4"), fps=a.fps, codec="libx264", quality=8, macro_block_size=8)
-               for k in ("wide", "close", "side_by_side")}
+               for k in names}
+    plan = shot_plan(meta) if "sea" in views else ["wide"] * len(meta)
     gif = []
     for i, m in enumerate(meta):
-        wide = np.asarray(Image.open(fd / "wide" / f"{m['k']:05d}.png").convert("RGB"))
-        close = np.asarray(Image.open(fd / "close" / f"{m['k']:05d}.png").convert("RGB"))
-        writers["wide"].append_data(caption(wide, m["t"], m["phase"]))
-        writers["close"].append_data(caption(close, m["t"], m["phase"]))
-        half = [np.asarray(Image.fromarray(x).resize((960, 540))) for x in (wide, close)]
-        both = caption(np.concatenate(half, 1), m["t"], m["phase"], scale=1.0)
-        writers["side_by_side"].append_data(both)
-        if i % 4 == 0:  # GIF: 7.5 fps, 가로 960(README에 넣을 크기)
-            gif.append(Image.fromarray(both).resize((960, 270)))
+        img = {v: np.asarray(Image.open(fd / v / f"{m['k']:05d}.png").convert("RGB")) for v in views}
+        for v in views:
+            writers[v].append_data(caption(img[v], m["t"], m["phase"]))
+        edit = caption(img[plan[i]], m["t"], m["phase"])
+        writers["edit"].append_data(edit)
+        half = [np.asarray(Image.fromarray(img[v]).resize((960, 540))) for v in ("wide", "close")]
+        writers["side_by_side"].append_data(caption(np.concatenate(half, 1), m["t"], m["phase"]))
+        if i % 4 == 0:  # GIF: 편집본, 7.5 fps, 가로 720(README에 넣을 크기)
+            gif.append(Image.fromarray(edit).resize((720, 405)))
     for w in writers.values():
         w.close()
     pal = [g.convert("P", palette=Image.ADAPTIVE, colors=96) for g in gif]
     pal[0].save(OUT / "scaleup.gif", save_all=True, append_images=pal[1:], duration=133, loop=0, optimize=True)
-    for f in ["scaleup_wide.mp4", "scaleup_close.mp4", "scaleup_side_by_side.mp4", "scaleup.gif"]:
+    for f in [f"scaleup_{k}.mp4" for k in names] + ["scaleup.gif"]:
         print(f, round((OUT / f).stat().st_size / 1e6, 1), "MB")
 
 

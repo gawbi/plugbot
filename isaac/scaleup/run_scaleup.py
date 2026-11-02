@@ -32,6 +32,7 @@ ap.add_argument("--headless", action="store_true")
 ap.add_argument("--frames-dir", default=str(ROOT / "data" / "scaleup_frames"))
 ap.add_argument("--trials", type=int, default=0, help="0이면 영상 1회. N이면 렌더 없이 시드 0..N-1을 센다")
 ap.add_argument("--fps", type=int, default=30)
+ap.add_argument("--max-frames", type=int, default=0, help="0보다 크면 이만큼만 렌더(구도 확인용)")
 args = ap.parse_args()
 
 from isaacsim import SimulationApp  # noqa: E402
@@ -70,6 +71,7 @@ HULL_X = ENTRANCE0[0] + SOCKET_H  # 현측 판 면
 BEAM, HULL_LEN, DECK_Z, KEEL_Z, WATER_Z = 12.0, 40.0, 2.2, -3.5, -1.2
 SHIP_O = np.array([HULL_X + BEAM / 2, 0.0, WATER_Z])  # 선박 운동 기준(수선면 선체 중심)
 QUAY_EDGE = 1.00
+HY = 14.0  # 선체 길이 방향 중심(소켓에서 뱃머리 쪽으로). 선미 끝이 소켓 6 m 옆에 와서 넓은 시점에 바다가 보인다
 
 S = K_TIME
 # 시간 인자는 모두 ×√10(관측 주기 포함: AR이 모형과 같은 걸음 수로 앞을 본다). lead는 서보 지연 보상인데, 여기 팔은 운동학이라 한 주기만
@@ -77,6 +79,15 @@ P = replace(Params(), latency=0.10 * S, lead=1.0 / 30, ar_window=3.0 * S, gate_s
             timeout=12.0 * S, hold=0.2 * S, hover=0.030 * K_CONN, align_tol=0.004 * K_CONN, descend_speed=0.04 * S,
             depth_goal=DEPTH_GOAL, noise=0.0005 * K_LEN, cam_hz=30.0 / S)
 QD_MAX = 1.5  # 관절 속도 제한(rad/s). UR10e 정격(어깨 120°/s = 2.1 rad/s)보다 느리게
+QDD_MAX = 6.0  # 관절 가속도 제한(rad/s²): 산업용 팔처럼 매끄럽게 가속, 감속한다
+KP_JOINT = 6.0  # 관절 목표를 따라가는 속도 이득(1/s)
+TAU_TARGET, TAU_INSERT, TAU_CAPTURED = 0.25, 0.12, 0.08  # 목표 필터 시정수(s): 관측 잡음과 9.5 Hz 계단을 펴서 떨림을 없앤다. 삽입, 포착 뒤는 빠르게
+LOCAL_ASSETS = Path.home() / "isaacsim_assets" / "Assets" / "Isaac" / "5.1"  # isaac/scaleup/fetch_assets.py가 받아 둔 곳
+
+
+def asset(rel):
+    local = LOCAL_ASSETS / rel.lstrip("/")
+    return str(local) if local.exists() else get_assets_root_path() + rel  # 없으면 Isaac 자산 서버(인터넷)
 Q_HOME = np.array([0.0, -2.0, 2.0, -1.57, -1.57, 0.0])
 
 
@@ -115,11 +126,27 @@ def material(name, rgb, rough=0.6, metal=0.0):
 
 
 MAT = {k: material(k, *v) for k, v in {
-    "water": ((0.05, 0.22, 0.32), 0.15), "concrete": ((0.55, 0.55, 0.53), 0.9), "hull": ((0.92, 0.93, 0.95), 0.4),
+    "water": ((0.02, 0.10, 0.16), 0.30), "concrete": ((0.36, 0.36, 0.35), 0.9), "hull": ((0.92, 0.93, 0.95), 0.4),
     "stripe": ((0.75, 0.10, 0.12), 0.5), "hull_low": ((0.10, 0.18, 0.32), 0.5), "cabin": ((0.85, 0.87, 0.90), 0.4),
     "window": ((0.05, 0.08, 0.12), 0.1), "panel": ((0.22, 0.24, 0.27), 0.5), "socket": ((0.95, 0.55, 0.10), 0.45),
     "plug": ((0.18, 0.19, 0.21), 0.35), "pin": ((0.80, 0.80, 0.82), 0.25), "fender": ((0.06, 0.06, 0.06), 0.8),
     "pedestal": ((0.35, 0.37, 0.40), 0.5), "marking": ((0.95, 0.78, 0.10), 0.6)}.items()}
+
+
+def emissive(name, rgb):
+    m = UsdShade.Material.Define(stage, f"/World/Looks/{name}")
+    sh = UsdShade.Shader.Define(stage, f"/World/Looks/{name}/S")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(5 * np.asarray(rgb))))
+    m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+    return m
+
+
+UsdShade.Shader.Get(stage, "/World/Looks/water/S").CreateInput("ior", Sdf.ValueTypeNames.Float).Set(1.15)  # 비스듬히 볼 때 하늘이 덜 비친다
+MAT["led_wait"] = emissive("led_wait", (1.0, 0.45, 0.05))
+MAT["led_on"] = emissive("led_on", (0.1, 1.0, 0.35))
+MAT["cable"] = material("cable", (0.03, 0.03, 0.035), 0.55)
 
 
 def box(path, center, size, mat, rot=None):
@@ -169,12 +196,57 @@ def revolve_mesh(path, profile, n=64, mat="socket"):
 
 
 # 바다, 부두, 받침, 펜더
-box("/World/Water", (0, 0, WATER_Z - 0.05), (600, 600, 0.1), "water")
+box("/World/Water", (0, 0, WATER_Z - 0.25), (2000, 2000, 0.1), "water")
+SEA_N, SEA_L = 90, 140.0  # 출렁이는 바다 메시(가로세로 칸 수, 한 변 m)
+_g = np.linspace(-SEA_L / 2, SEA_L / 2, SEA_N)
+SEA_X, SEA_Y = np.meshgrid(_g + SEA_L / 2 - 2.0, _g)
+_sea_rng = np.random.default_rng(7)
+SEA_W = [(2 * np.pi / T, np.deg2rad(d), a, _sea_rng.uniform(0, 2 * np.pi)) for T, d, a in
+         [(6.3, 200, 0.12), (4.6, 170, 0.07), (8.1, 225, 0.09), (3.2, 190, 0.035), (2.4, 160, 0.02)]]  # 주기(s), 방향(°), 진폭(m)
+
+
+def sea_height(x, y, t):
+    h = np.zeros_like(x)
+    for w, d, a, ph in SEA_W:
+        k = w * w / 9.81  # 깊은 물 분산 관계
+        h += a * np.sin(k * (x * np.cos(d) + y * np.sin(d)) - w * t + ph)
+    return h
+
+
+sea = UsdGeom.Mesh.Define(stage, "/World/Sea")
+_idx = np.arange(SEA_N * SEA_N).reshape(SEA_N, SEA_N)
+sea.CreateFaceVertexIndicesAttr(Vt.IntArray(np.stack([_idx[:-1, :-1], _idx[:-1, 1:], _idx[1:, 1:], _idx[1:, :-1]], -1).reshape(-1).tolist()))
+sea.CreateFaceVertexCountsAttr(Vt.IntArray([4] * (SEA_N - 1) ** 2))
+sea.CreateSubdivisionSchemeAttr("none")
+UsdShade.MaterialBindingAPI.Apply(sea.GetPrim()).Bind(MAT["water"])
+
+
+def update_sea(t):
+    h = sea_height(SEA_X, SEA_Y, t)
+    gy, gx = np.gradient(h, _g, _g)
+    n = np.stack([-gx, -gy, np.ones_like(h)], -1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    pts = np.stack([SEA_X, SEA_Y, WATER_Z + h], -1).reshape(-1, 3)
+    sea.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
+    sea.GetNormalsAttr().Set(Vt.Vec3fArray.FromNumpy(n.reshape(-1, 3).astype(np.float32)))
+
+
+sea.CreatePointsAttr()
+sea.CreateNormalsAttr()
+sea.SetNormalsInterpolation("vertex")
+update_sea(0.0)
 box("/World/Quay", ((QUAY_EDGE - 15) / 2, 0, -1.6), (QUAY_EDGE + 15, 60, 3.2), "concrete")
 box("/World/QuayLine", (QUAY_EDGE - 0.25, 0, 0.005), (0.12, 60, 0.01), "marking")
 cylinder("/World/Pedestal", (ROBOT_BASE[0], ROBOT_BASE[1], ROBOT_BASE[2] / 2), 0.22, ROBOT_BASE[2], "pedestal")
 for y in (-6.0, -2.5, 2.5, 6.0):
     cylinder(f"/World/Fender_{int(y * 10) + 100}", (QUAY_EDGE + 0.18, y, -0.6), 0.18, 1.6, "fender")
+for y in (-8.0, 4.5, 9.0):  # 계선주
+    cylinder(f"/World/Bollard_{int(y * 10) + 100}", (QUAY_EDGE - 0.5, y, 0.25), 0.16, 0.5, "fender")
+CABINET = np.array([-0.85, 1.7, 0.0])  # 로봇 뒤 왼쪽(넓은 시점을 가리지 않게)
+box("/World/Cabinet", CABINET + (0, 0, 0.8), (0.5, 0.7, 1.6), "panel")
+box("/World/CabinetTop", CABINET + (0, 0, 1.62), (0.52, 0.72, 0.05), "marking")
+box("/World/CabinetFace", CABINET + (0.255, 0, 1.05), (0.01, 0.5, 0.35), "window")
+CABLE_OUT = CABINET + np.array([0.27, -0.12, 0.55])
 
 # 선박(움직이는 Xform). 자식은 선박 기준점 SHIP_O를 원점으로 둔 좌표
 ship_xf = UsdGeom.Xform.Define(stage, "/World/Ship")
@@ -184,15 +256,47 @@ def ship_box(name, center_world, size, mat):
     return box(f"/World/Ship/{name}", np.asarray(center_world) - SHIP_O, size, mat)
 
 
-ship_box("Hull", (HULL_X + BEAM / 2, 0, (DECK_Z + KEEL_Z) / 2), (BEAM, HULL_LEN, DECK_Z - KEEL_Z), "hull")
-ship_box("HullLow", (HULL_X + BEAM / 2, 0, (WATER_Z + 0.4 + KEEL_Z) / 2), (BEAM + 0.02, HULL_LEN + 0.02, WATER_Z + 0.4 - KEEL_Z), "hull_low")
-ship_box("Stripe", (HULL_X + BEAM / 2, 0, DECK_Z - 0.35), (BEAM + 0.03, HULL_LEN + 0.03, 0.18), "stripe")
-ship_box("Cabin", (HULL_X + BEAM / 2 + 0.6, -3.0, DECK_Z + 1.5), (BEAM - 2.0, 24.0, 3.0), "cabin")
-ship_box("Windows", (HULL_X + 1.58, -3.0, DECK_Z + 1.9), (0.04, 22.0, 0.9), "window")
-ship_box("Bridge", (HULL_X + BEAM / 2 + 1.5, 6.5, DECK_Z + 3.9), (6.0, 5.0, 1.8), "cabin")
-ship_box("BridgeWin", (HULL_X + 3.48, 6.5, DECK_Z + 4.1), (0.04, 4.6, 0.7), "window")
+ship_box("Hull", (HULL_X + BEAM / 2, HY, (DECK_Z + KEEL_Z) / 2), (BEAM, HULL_LEN, DECK_Z - KEEL_Z), "hull")
+ship_box("HullLow", (HULL_X + BEAM / 2, HY, (WATER_Z + 0.4 + KEEL_Z) / 2), (BEAM + 0.02, HULL_LEN + 0.02, WATER_Z + 0.4 - KEEL_Z), "hull_low")
+ship_box("Stripe", (HULL_X + BEAM / 2, HY, DECK_Z - 0.35), (BEAM + 0.03, HULL_LEN + 0.03, 0.18), "stripe")
+ship_box("Cabin", (HULL_X + BEAM / 2 + 0.6, HY - 3.0, DECK_Z + 1.5), (BEAM - 2.0, 24.0, 3.0), "cabin")
+ship_box("Windows", (HULL_X + 1.58, HY - 3.0, DECK_Z + 1.9), (0.04, 22.0, 0.9), "window")
+ship_box("Bridge", (HULL_X + BEAM / 2 + 1.5, HY + 6.5, DECK_Z + 3.9), (6.0, 5.0, 1.8), "cabin")
+ship_box("BridgeWin", (HULL_X + 3.48, HY + 6.5, DECK_Z + 4.1), (0.04, 4.6, 0.7), "window")
 ship_box("Panel", (HULL_X - 0.01, 0, ENTRANCE0[2]), (0.04, 1.2, 1.2), "panel")
 ship_box("PanelMark", (HULL_X - 0.035, 0, ENTRANCE0[2] + 0.7), (0.01, 1.2, 0.12), "marking")
+for i, y in enumerate(np.arange(HY - 17.0, HY + 17.5, 1.6)):  # 둥근 창(현측)
+    if abs(y) > 1.0:
+        c = cylinder(f"/World/Ship/Port_{i}", np.array([HULL_X - 0.005, y, DECK_Z - 1.0]) - SHIP_O, 0.17, 0.02, "window", axis="X")
+for i, y in enumerate(np.arange(HY - 19.5, HY + 20.0, 1.5)):  # 난간 기둥
+    cylinder(f"/World/Ship/Rail_{i}", np.array([HULL_X + 0.15, y, DECK_Z + 0.5]) - SHIP_O, 0.02, 1.0, "pedestal")
+box("/World/Ship/RailTop", np.array([HULL_X + 0.15, HY, DECK_Z + 1.0]) - SHIP_O, (0.05, 39.0, 0.05), "pedestal")
+cylinder("/World/Ship/Mast", np.array([HULL_X + BEAM / 2 + 1.5, HY + 6.5, DECK_Z + 6.8]) - SHIP_O, 0.12, 4.0, "cabin")
+LED_PANEL = cylinder("/World/Ship/PanelLed", np.array([HULL_X - 0.04, 0.45, ENTRANCE0[2] + 0.45]) - SHIP_O, 0.05, 0.02, "led_wait", axis="X")
+LED_CAB = box("/World/CabinetLed", CABINET + (0.26, 0.0, 1.38), (0.02, 0.18, 0.06), "led_wait")
+cable = UsdGeom.BasisCurves.Define(stage, "/World/Cable")
+cable.CreateTypeAttr("linear")
+cable.CreateCurveVertexCountsAttr(Vt.IntArray([32]))
+cable.CreateWidthsAttr(Vt.FloatArray([0.045] * 32))
+cable.SetWidthsInterpolation("vertex")
+cable.CreatePointsAttr()
+UsdShade.MaterialBindingAPI.Apply(cable.GetPrim()).Bind(MAT["cable"])
+
+
+def update_cable(p_end, out_dir):
+    """부두 캐비닛에서 플러그 뒤까지 늘어진 케이블(3차 베지에)."""
+    p0 = CABLE_OUT
+    p1 = p0 + np.array([0.25, 0.0, -0.45])
+    p2 = p_end - out_dir * 0.45 + np.array([0.0, 0.0, -0.55])
+    u = np.linspace(0, 1, 32)[:, None]
+    pts = (1 - u) ** 3 * p0 + 3 * (1 - u) ** 2 * u * p1 + 3 * (1 - u) * u ** 2 * p2 + u ** 3 * p_end
+    pts[:, 2] = np.maximum(pts[:, 2], 0.03)  # 부두 바닥 위
+    cable.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
+
+
+def set_led(on):
+    for g in (LED_PANEL, LED_CAB):
+        UsdShade.MaterialBindingAPI(g.GetPrim()).Bind(MAT["led_on" if on else "led_wait"])
 # 소켓: 단면은 cad/make_parts.py._wall_profile() × 5. 지역 z축(입구 바깥)을 선박의 -x로 돌린다
 sock = UsdGeom.Xform.Define(stage, "/World/Ship/Socket")
 sx = UsdGeom.Xformable(sock)
@@ -203,13 +307,19 @@ revolve_mesh("/World/Ship/Socket/Wall", [(BORE_R, CAP_T), (OUTER_R, CAP_T), (OUT
 cylinder("/World/Ship/Socket/Cap", (0, 0, CAP_T / 2), OUTER_R, CAP_T, "panel")
 
 # 빛
-UsdLux.DomeLight.Define(stage, "/World/Sky").CreateIntensityAttr(900.0)
+sky = UsdLux.DomeLight.Define(stage, "/World/Sky")
+sky.CreateIntensityAttr(700.0)
+sky.CreateTextureFileAttr(asset("/NVIDIA/Assets/Skies/Cloudy/champagne_castle_1_4k.hdr"))
+sky.CreateTextureFormatAttr("latlong")
 sun = UsdLux.DistantLight.Define(stage, "/World/Sun")
-sun.CreateIntensityAttr(2500.0)
-UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(-50.0, 20.0, -30.0))
+sun.CreateIntensityAttr(1800.0)
+sun.CreateAngleAttr(0.6)
+sun.CreateColorAttr(Gf.Vec3f(1.0, 0.94, 0.85))
+UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(-32.0, 18.0, -55.0))
 
 # UR10e(Isaac 기본 자산)
-UR_USD = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+UR_USD = asset("/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd")
+print("UR10e:", UR_USD)
 add_reference_to_stage(UR_USD, "/World/UR10e")
 stage.GetPrimAtPath("/World/UR10e").GetAttribute("xformOp:translate").Set(Gf.Vec3d(*map(float, ROBOT_BASE)))  # 참조가 이미 translate를 갖는다
 root = next(p.GetPath().pathString for p in stage.Traverse()
@@ -227,6 +337,21 @@ def fk_tool(q):
 
 robot = world.scene.add(SingleArticulation(prim_path=root, name="ur10e"))
 ship = SingleXFormPrim("/World/Ship", name="ship")
+
+
+def look_quat(pos, look):
+    z = np.asarray(pos, float) - np.asarray(look, float)
+    z /= np.linalg.norm(z)
+    x = np.cross([0, 0, 1.0], z)
+    x /= np.linalg.norm(x)
+    q = Rotation.from_matrix(np.stack([x, np.cross(z, x), z], 1)).as_quat()
+    return Gf.Quatf(float(q[3]), float(q[0]), float(q[1]), float(q[2]))
+
+
+def move_cam(path, pos, look):
+    p = stage.GetPrimAtPath(path)
+    p.GetAttribute("xformOp:translate").Set(Gf.Vec3d(*map(float, pos)))
+    p.GetAttribute("xformOp:orient").Set(look_quat(pos, look))
 
 
 def cam(path, pos, look, focal):
@@ -247,8 +372,10 @@ def cam(path, pos, look, focal):
     return path
 
 
-CAMS = {"wide": cam("/World/CamWide", (-1.3, -3.4, 2.3), (1.25, 0.6, 1.25), 15.0),
-        "close": cam("/World/CamClose", (0.55, -1.25, 1.45), (1.15, 0.0, 0.98), 22.0)}
+WIDE_PATH = [((-1.6, -9.5, 3.4), (1.2, 1.0, 1.0)), ((-0.7, -6.2, 2.5), (1.1, 0.3, 1.0))]  # 부두 쪽 선미 근처에서 로봇 어깨 너머로 천천히 다가간다
+CAMS = {"wide": cam("/World/CamWide", *WIDE_PATH[0], 20.0),
+        "close": cam("/World/CamClose", (0.55, -1.25, 1.45), (1.15, 0.0, 0.98), 22.0),
+        "sea": cam("/World/CamSea", (1.7, -17.0, 3.6), (0.5, 0.0, 1.0), 20.0)}  # 부두와 선체 사이 틈의 연장선, 선미 바깥 바다 위
 
 world.reset()
 dof = [robot.get_dof_index(j) for j in JOINTS]
@@ -293,8 +420,12 @@ def episode(seed, render=True, frames_dir=None):
     """한 번 시행. 렌더하면 프레임 PNG를 남긴다. (성공, 삽입 시각, 기록)"""
     motion = ship_motion(seed)
     est = SocketEstimator("predictive", P, np.random.default_rng(seed))
-    q = Q_HOME.copy()
+    q, qd = Q_HOME.copy(), np.zeros(6)
+    q_goal, tgt = Q_HOME.copy(), None  # IK 목표 관절, 필터한 tool0 목표(위치, 자세)
+    qd_ff = np.zeros(6)  # 목표 관절의 속도(앞먹임): 비례 추종만으로는 움직이는 소켓을 v/Kp만큼 늦게 따른다
     dt = 1.0 / args.fps
+    set_led(False)
+    tgt_started = False
     phase, depth_cmd, gate_t, hold_t, t_ins = "approach", -P.hover, None, 0.0, None
     captured, miss = None, None  # 핀 끝이 입구 면을 지날 때의 옆 오차(포착 판정)
     log, t, frame, ik_fail = [], 0.0, 0, 0
@@ -319,11 +450,24 @@ def episode(seed, render=True, frames_dir=None):
             if captured:  # 가정: 깔때기와 순응 손목(RCC)이 옆 오차를 흡수해 핀이 실제 소켓 축을 따른다(모형은 물리 접촉으로 흡수)
                 ent_hat, ax_hat = ent, axis
             pos, quat = tool_target(ent_hat - ax_hat * depth_cmd, ax_hat)
-            q_ik, ok = ik.compute_inverse_kinematics("tool0", pos, quat, warm_start=q)
+            if tgt is None:
+                tgt = (pos, Rotation.from_quat(quat[[1, 2, 3, 0]]))
+            a = 1.0 - np.exp(-dt / (TAU_CAPTURED if captured else TAU_INSERT if phase == "insert" else TAU_TARGET))
+            r_new = Rotation.from_quat(quat[[1, 2, 3, 0]])
+            r_f = tgt[1] * Rotation.from_rotvec(a * (tgt[1].inv() * r_new).as_rotvec())
+            tgt = (tgt[0] + a * (pos - tgt[0]), r_f)
+            qf = r_f.as_quat()
+            q_ik, ok = ik.compute_inverse_kinematics("tool0", tgt[0], np.array([qf[3], qf[0], qf[1], qf[2]]), warm_start=q_goal)
             if ok:
-                q = q + np.clip(np.asarray(q_ik) - q, -QD_MAX * dt, QD_MAX * dt)
+                q_ik = np.asarray(q_ik)
+                qd_ff = (q_ik - q_goal) / dt if tgt_started else np.zeros(6)
+                q_goal, tgt_started = q_ik, True
             else:
                 ik_fail += 1
+        # 관절: 속도와 가속도를 제한해 목표를 따라간다(산업용 팔처럼 매끄럽게)
+        qd_cmd = np.clip(qd_ff + KP_JOINT * (q_goal - q), -QD_MAX, QD_MAX)
+        qd = qd + np.clip(qd_cmd - qd, -QDD_MAX * dt, QDD_MAX * dt)
+        q = q + qd * dt
         # 채점(모형 실험과 같은 기준: 목표 깊이, 보어 안 반경 여유를 hold 동안 유지). 충돌은 계산하지 않는다
         rel = tip - ent
         depth = -float(np.dot(rel, axis))
@@ -337,15 +481,24 @@ def episode(seed, render=True, frames_dir=None):
                 hold_t += dt
                 if hold_t >= P.hold:
                     t_ins, phase, t_end = t, "connected", t + 3.0
+                    set_led(True)
             else:
                 hold_t = 0.0
         log.append({"t": round(t, 3), "phase": phase, "captured": captured, "depth": round(depth, 4), "lateral": round(lat, 4), "ik_fail": ik_fail})
         if render:
+            update_sea(t)
+            p_t, R_t = fk_tool(q)
+            update_cable(p_t + R_t[:, 2] * (ADAPTER_L + 0.06) - R_t[:, 0] * BODY_R, R_t[:, 2])
+            u = min(1.0, t / max(P.timeout * 0.5, 1e-6))
+            u = u * u * (3 - 2 * u)
+            move_cam("/World/CamWide", *(np.array(WIDE_PATH[0][i]) + u * (np.array(WIDE_PATH[1][i]) - np.array(WIDE_PATH[0][i])) for i in (0, 1)))
             robot.set_joint_positions(q, joint_indices=np.array(dof))  # [ISAAC] 운동학 재생
             world.step(render=True)  # [ISAAC]
             if frames_dir is not None:
                 save_frames(frames_dir, frame, t, phase)
             frame += 1
+            if args.max_frames and frame >= args.max_frames:
+                break
         t += dt
     return t_ins is not None, t_ins, log
 

@@ -2,7 +2,7 @@
 
 <img src="../../outputs/scaleup.gif" width="900" alt="UR10e가 실제 크기 전기 페리의 현측 충전 소켓에 플러그를 꽂는 Isaac Sim 시각화">
 
-<sub>실제 크기 확장 시각화(Isaac Sim). 왼쪽 넓은 시점, 오른쪽 소켓 근접 시점. 파고 0.6 m, 시드 8: 접근 → 잔잔한 순간 대기 → 삽입 → 11.7 s에 연결</sub>
+<sub>실제 크기 확장 시각화(Isaac Sim) 편집본: 바다 시점 → 넓은 시점 → 소켓 근접 → 넓은 시점. 파고 0.6 m, 시드 8: 접근 → 잔잔한 순간 대기 → 삽입 → 13.4 s에 연결(패널 표시등이 초록으로)</sub>
 
 산업용 로봇 UR10e(Isaac Sim 5.1 기본 자산)가 실제 크기 전기 페리의 현측 충전 소켓에 플러그를 꽂는 장면이다.
 **메인 주제(실물 SO-101 + ACT)의 결과가 아니다.** 모형 실험의 방법(지연 관측, AR 예측, 정온 구간 삽입)을 실제 크기로 키우면
@@ -10,13 +10,20 @@
 
 ```bash
 cd ~/plugbot
+# 처음 한 번(인터넷 필요): UR10e와 하늘 HDR을 ~/isaacsim_assets에 받는다. 그 뒤로는 인터넷 없이 돈다
+OMNI_KIT_ACCEPT_EULA=YES LD_LIBRARY_PATH=~/isaacsim_compat/lib ~/isaacsim_env/bin/python isaac/scaleup/fetch_assets.py
 OMNI_KIT_ACCEPT_EULA=YES LD_LIBRARY_PATH=~/isaacsim_compat/lib ~/isaacsim_env/bin/python isaac/scaleup/run_scaleup.py --seed 8 --headless
 ~/plugbot/.venv/bin/python isaac/scaleup/make_media.py        # 자막, mp4, GIF
 OMNI_KIT_ACCEPT_EULA=YES LD_LIBRARY_PATH=~/isaacsim_compat/lib ~/isaacsim_env/bin/python isaac/scaleup/run_scaleup.py --trials 10   # 렌더 없이 횟수 세기
 ```
 
-결과: `outputs/scaleup_wide.mp4`(넓은 시점), `scaleup_close.mp4`(소켓 근접), `scaleup_side_by_side.mp4`(나란히), `scaleup.gif`.
-mp4와 프레임(`data/scaleup_frames/`)은 커밋하지 않는다. UR10e USD는 Isaac 자산 서버에서 불러오므로 첫 실행에 인터넷이 필요하다.
+결과: `outputs/scaleup_edit.mp4`(편집본, 발표용), `scaleup_sea.mp4`, `scaleup_wide.mp4`, `scaleup_close.mp4`, `scaleup_side_by_side.mp4`, `scaleup.gif`(편집본).
+mp4와 프레임(`data/scaleup_frames/`)은 커밋하지 않는다. UR10e(USD 레이어 29개)와 하늘 HDR은 `fetch_assets.py`로 `~/isaacsim_assets`에
+받아 두며(103 MB, 저장소 밖), 로컬 사본이 있으면 그것을, 없으면 Isaac 자산 서버를 쓴다.
+
+장면: 부두(받침, 펜더, 계선주, 충전 캐비닛과 늘어진 충전 케이블), 페리(선체, 둥근 창, 난간, 선실, 마스트, 현측 패널과 상태등), 출렁이는 바다 메시
+(파도 성분 5개, 주기 2.4~8.1 s), HDR 하늘. 연결되면 패널과 캐비닛의 상태등이 주황에서 초록으로 바뀐다. 카메라는 바다 시점(선미 바깥),
+넓은 시점(천천히 다가감), 소켓 근접 셋이다.
 
 ## 정한 치수와 이유
 
@@ -35,7 +42,9 @@ mp4와 프레임(`data/scaleup_frames/`)은 커밋하지 않는다. UR10e USD는
 | 페리 | 폭 12 m, 보이는 길이 40 m, 건현(부두 위) 2.2 m, 흘수 2.3 m | 연안 전기 여객선, 관공선 크기의 일부만 |
 | 배치 | 로봇 받침 0.6 m, 소켓 입구는 로봇 앞 1.2 m, 받침보다 0.4 m 위 | UR10e 도달 거리 1.3 m 안에서 삽입 자세가 나오게. 모형(앞 30 cm)의 10배는 도달 범위 밖 |
 | 제어 시간 인자 | 지연 0.32 s, 관측 9.5 Hz, AR 창 9.5 s, 정온 구간 판정 속도 0.038 m/s, 삽입 속도 0.126 m/s | 모형 값 × √10(관측 주기도 늘려 AR이 모형과 같은 걸음 수로 앞을 본다). 길이 인자(대기 거리 150 mm, 정렬 허용 20 mm)는 커넥터 배율 × 5 |
-| 관절 속도 제한 | 1.5 rad/s | UR10e 정격(큰 관절 120°/s = 2.1 rad/s)보다 느리게 |
+| 관절 속도, 가속도 제한 | 1.5 rad/s, 6 rad/s² | UR10e 정격(큰 관절 120°/s = 2.1 rad/s)보다 느리게, 매끄럽게 가속, 감속 |
+| 목표 필터 시정수 | 접근과 대기 0.25 s, 삽입 0.12 s, 포착 뒤 0.08 s | 관측 잡음과 9.5 Hz 관측 계단 때문에 팔이 떨리던 것을 편다. 삽입 때는 늦지 않게 짧게 |
+| 관절 추종 | 목표 관절 속도 앞먹임 + 비례(6/s) | 비례만 쓰면 0.3 m/s로 움직이는 소켓을 약 5 cm 늦게 따라가 보어(여유 1.2 cm)를 벗어났다 |
 
 ## 가정 (그대로 밝힌다)
 
@@ -47,9 +56,9 @@ mp4와 프레임(`data/scaleup_frames/`)은 커밋하지 않는다. UR10e USD는
 
 ## 돌린 결과 (횟수 그대로)
 
-`run_scaleup.py --trials 10`(시드 0~9, 렌더 없음): **10번 중 10번 연결**. 연결 시각 4.8~15.2 s(`trials.json`).
+`run_scaleup.py --trials 10`(시드 0~9, 렌더 없음, 매끄러운 움직임 적용 뒤): **10번 중 10번 연결**. 연결 시각 7.4~25.8 s(`trials.json`).
 위 가정(충돌 없음, 깔때기 포착) 아래의 시각화 기준이라 **실제 크기 장치가 된다는 검증이 아니다.**
-시드 0은 연결 뒤 IK가 14번 실패해 마지막에 플러그가 소켓에서 30 cm 벗어났다(연결 판정은 그 전에 났다). 영상은 시드 8.
+과정: 처음(필터 없음) 10/10이었으나 팔이 떨렸다. 필터와 가속도 제한만 넣으니 늦어져 2/10, 앞먹임을 넣어 8/10, 삽입 때 필터를 짧게 해 10/10. 영상은 시드 8.
 
 ## 못 한 것
 
