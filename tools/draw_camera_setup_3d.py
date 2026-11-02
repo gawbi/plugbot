@@ -4,12 +4,16 @@
 실행: MUJOCO_GL=egl ~/plugbot/.venv/bin/python tools/draw_camera_setup_3d.py   결과: outputs/camera_setup_3d.png
 """
 
+import sys
+from pathlib import Path
+
 import mujoco
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from plugbot.control import home_pose
-from plugbot.scene import CAMERAS_SIDE, Scene
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from plugbot.control import home_pose  # noqa: E402
+from plugbot.scene import CAMERAS_SIDE, Scene  # noqa: E402
 
 DESK = -0.10
 BOOTH = (-0.17, 0.48, -0.33, 0.32)  # 부스 안쪽 x0, x1, y0, y1(m), 높이 0.65
