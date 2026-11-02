@@ -3,6 +3,7 @@
 
 # LeRobot 0.6.1 환경(uv 가상환경). conda를 쓰면 LEROBOT_BIN=$CONDA_PREFIX/bin
 LEROBOT_BIN="${LEROBOT_BIN:-$HOME/lerobot_env/bin}"
+export PATH="$LEROBOT_BIN:$PATH"  # lerobot이 부르는 rerun(화면 표시), ffmpeg 등을 가상환경에서 찾게
 
 # 허깅페이스 아이디. 'local'이면 Hub에 올리지 않고 ~/.cache/huggingface/lerobot/local/ 에만 저장한다.
 # 맥에서 Hub에 올린 데이터를 받으려면 `$LEROBOT_BIN/hf auth login` 뒤 HF_USER=<아이디>
