@@ -32,6 +32,7 @@ ap.add_argument("--headless", action="store_true")
 ap.add_argument("--frames-dir", default=str(ROOT / "data" / "scaleup_frames"))
 ap.add_argument("--trials", type=int, default=0, help="0이면 영상 1회. N이면 렌더 없이 시드 0..N-1을 센다")
 ap.add_argument("--fps", type=int, default=30)
+ap.add_argument("--plug", choices=["iec", "simple"], default="iec", help="iec: 그리퍼 덮개와 같은 구조의 플러그, simple: 예전 원통")
 ap.add_argument("--livery", choices=["panstar", "plain"], default="panstar",
                 help="panstar: 팬스타 미라클호 사진을 흉내 낸 현측 무늬(make_livery.py), plain: 예전 흰 선체와 빨간 띠")
 ap.add_argument("--max-frames", type=int, default=0, help="0보다 크면 이만큼만 렌더(구도 확인용)")
@@ -87,7 +88,9 @@ QD_MAX = 1.5  # 관절 속도 제한(rad/s). UR10e 정격(어깨 120°/s = 2.1 r
 QDD_MAX = 6.0  # 관절 가속도 제한(rad/s²): 산업용 팔처럼 매끄럽게 가속, 감속한다
 KP_JOINT = 6.0  # 관절 목표를 따라가는 속도 이득(1/s)
 TAU_TARGET, TAU_INSERT, TAU_CAPTURED = 0.25, 0.12, 0.08  # 목표 필터 시정수(s): 관측 잡음과 9.5 Hz 계단을 펴서 떨림을 없앤다. 삽입, 포착 뒤는 빠르게
+PLUG_NPZ = HERE / "plug_iec.npz"  # make_plug_mesh.py. --plug simple이면 예전 원통 플러그
 LOCAL_ASSETS = Path.home() / "isaacsim_assets" / "Assets" / "Isaac" / "5.1"  # isaac/scaleup/fetch_assets.py가 받아 둔 곳
+PLUG_MESH = dict(np.load(PLUG_NPZ)) if args.plug == "iec" else None
 
 
 def asset(rel):
@@ -444,6 +447,16 @@ def attach_plug():
     UsdGeom.Xformable(plug).AddTransformOp().Set(Gf.Matrix4d(L.T.tolist()))
     base = plug.GetPath().pathString
     cylinder(base + "/Adapter", (0, 0, ADAPTER_L / 2), ADAPTER_R, ADAPTER_L, "pedestal")
+    if PLUG_MESH is not None:  # 그리퍼 덮개와 같은 구조의 육상전원 플러그(make_plug_mesh.py)
+        for part, mat in (("body", "plug"), ("ring", "socket"), ("holes", "window"), ("pin", "pin"), ("gland", "plug")):
+            mesh = UsdGeom.Mesh.Define(stage, f"{base}/{part.capitalize()}")
+            v, f = PLUG_MESH[part + "_v"], PLUG_MESH[part + "_f"]
+            mesh.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(v))
+            mesh.CreateFaceVertexIndicesAttr(Vt.IntArray(f.reshape(-1).tolist()))
+            mesh.CreateFaceVertexCountsAttr(Vt.IntArray([3] * len(f)))
+            mesh.CreateSubdivisionSchemeAttr("none")
+            UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(MAT[mat])
+        return
     cylinder(base + "/Body", (0, 0, ADAPTER_L + BODY_L / 2), BODY_R, BODY_L, "plug")
     cylinder(base + "/Pin", (0, 0, ADAPTER_L + BODY_L + (PIN_L - 0.015) / 2), PIN_R, PIN_L - 0.015, "pin")
     cone = UsdGeom.Cone.Define(stage, base + "/Tip")
@@ -453,6 +466,13 @@ def attach_plug():
     UsdGeom.Xformable(cone).AddTranslateOp().Set(Gf.Vec3d(0, 0, TIP_L - 0.0075))
     UsdShade.MaterialBindingAPI.Apply(cone.GetPrim()).Bind(MAT["pin"])
     cylinder(base + "/Grip", (0, 0, ADAPTER_L + 0.04), BODY_R + 0.006, 0.03, "marking")
+
+
+def cable_end(p_t, R_t):
+    """케이블이 플러그에 들어가는 점과 들어오는 방향(world). 새 플러그는 부싱 끝, 예전 플러그는 몸통 옆."""
+    if PLUG_MESH is not None:
+        return p_t + R_t @ PLUG_MESH["gland_end"], -(R_t @ PLUG_MESH["gland_dir"])
+    return p_t + R_t[:, 2] * (ADAPTER_L + 0.06) - R_t[:, 0] * BODY_R, R_t[:, 2]
 
 
 def tool_target(tip, axis_out):
@@ -537,7 +557,7 @@ def episode(seed, render=True, frames_dir=None):
         if render:
             update_sea(t)
             p_t, R_t = fk_tool(q)
-            update_cable(p_t + R_t[:, 2] * (ADAPTER_L + 0.06) - R_t[:, 0] * BODY_R, R_t[:, 2])
+            update_cable(*cable_end(p_t, R_t))
             u = min(1.0, t / max(P.timeout * 0.5, 1e-6))
             u = u * u * (3 - 2 * u)
             move_cam("/World/CamWide", *(np.array(WIDE_PATH[0][i]) + u * (np.array(WIDE_PATH[1][i]) - np.array(WIDE_PATH[0][i])) for i in (0, 1)))
@@ -658,7 +678,7 @@ def episode_replay(ep_dir, seed, frames_dir=None):
             hold_t = 0.0
         if frames_dir is not None:
             update_sea(t)
-            update_cable(p_t + R_t[:, 2] * (ADAPTER_L + 0.06) - R_t[:, 0] * BODY_R, R_t[:, 2])
+            update_cable(*cable_end(p_t, R_t))
             robot.set_joint_positions(q, joint_indices=np.array(dof))  # [ISAAC] 운동학 재생
             world.step(render=True)  # [ISAAC]
             save_frames(frames_dir, frame, t, phase)
