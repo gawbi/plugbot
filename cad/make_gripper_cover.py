@@ -1,7 +1,8 @@
 """그리퍼 덮개(육상전원 AMP 케이블 플러그 모양). 닫은 SO-101 팔로워 그리퍼 턱에 앞에서 끼우고, 앞 코에 원통(cad/extra/)을 꽂는다. 단위 mm.
 
-- 안쪽: 공식 SO-101 메시(isaac/so101/assets)에서 고정 턱과 움직이는 턱(닫힘 q = -0.20 rad, 두 턱이 닿는 각)을
-  그리퍼 좌표로 놓고, 턱 끝에서 COVER_L 길이만큼의 볼록 껍질 + 여유 CLEAR.
+- 안쪽: 공식 SO-101 메시(isaac/so101/assets)로 고정 턱 칸과 움직이는 턱 칸을 따로 판다(각 턱의 볼록 껍질 + 여유 CLEAR).
+  두 칸 사이에 칸막이(쐐기, 턱 끝 쪽 3.2 mm)가 남는다. 그리퍼를 살짝 연 채 끼우고 닫으면 움직이는 턱이 칸막이를
+  고정 턱 쪽으로 눌러 덮개를 문다(마찰만으로 끼우는 것이 아니다). 그리퍼를 열면 빠진다.
 - 바깥: 선박 육상전원(AMP) 케이블 플러그를 흉내 낸 둥근 몸통(턱을 다 감싸는 원), 결합 링, 돌기, 앞으로 좁아지는 코.
   특정 선박(예: 팬스타)의 실제 플러그 규격을 확인해 본뜬 것이 아니다.
 - 앞 코 끝에 원통 꽂는 홈(깊이 POCKET). 원통 끝은 턱 끝보다 약 45 mm 앞(손목 카메라 화면 아래쪽에 보이게).
@@ -24,12 +25,14 @@ OUT = ROOT / "cad" / "out"
 
 Q_CLOSED = -0.20  # 두 턱이 닿는 그리퍼 관절각(rad, 메시 단면으로 찾음)
 COVER_L = 40.0  # 턱 끝에서 뒤로 덮는 길이
-CLEAR = 0.5  # 턱과 덮개 안쪽 여유(한쪽)
+CLEAR = 0.4  # 턱과 덮개 안쪽 여유(한쪽)
+Q_CLAMP = -0.15  # 두 턱 사이 칸막이(쐐기)에 움직이는 턱이 닿는 각. 그리퍼를 닫으면 이 칸막이를 고정 턱 쪽으로 눌러 덮개를 문다
+Q_SLACK = 0.06  # 움직이는 턱 칸을 이만큼 더 열린 각까지 넓힌다(끼울 때 여유, 턱 끝 약 5 mm)
 WALL = 2.4  # 덮개 벽
 NOSE = 30.0  # 턱 끝에서 코 앞면까지
 POCKET = 10.0  # 원통 꽂는 홈 깊이
-POCKET_CLEAR = 0.15
-PIN_CHAMFER = 1.5  # 한 덩어리형 핀 끝 모따기(소켓에 들어가기 쉽게)  # 홈 반지름 여유(빡빡하면 사포, 헐거우면 순간접착제)
+POCKET_CLEAR = 0.15  # 홈 반지름 여유(빡빡하면 사포, 헐거우면 순간접착제)
+PIN_CHAMFER = 1.5  # 한 덩어리형 핀 끝 모따기(소켓에 들어가기 쉽게)
 RIBS = 16  # 몸통 돌기 수
 CYLINDERS = {"D22.5": (22.5, 27.5), "D27.5": (27.5, 22.5)}  # cad/extra/ 원통 (지름, 길이)
 
@@ -40,13 +43,34 @@ def _part(name, xyz, rpy):
     return m
 
 
-def jaws():
-    """닫힌 두 턱(그리퍼 좌표, m). 값은 so101_plugbot_side.urdf 그대로."""
+def jaws(q=Q_CLOSED):
+    """두 턱(그리퍼 좌표, m). 움직이는 턱은 관절각 q. 값은 so101_plugbot_side.urdf 그대로."""
     fixed = _part("wrist_roll_follower_so101_v1.stl", (0, -0.000218214, 0.000949706), (-3.14159, 0, 0))
     moving = _part("moving_jaw_so101_v1.stl", (0, 0, 0.0189), (0, 0, 0))
     moving.apply_transform(translation_matrix((0.0202, 0.0188, -0.0234)) @ euler_matrix(1.5708, 0, 0, "sxyz")
-                           @ euler_matrix(0, 0, Q_CLOSED, "sxyz"))
+                           @ euler_matrix(0, 0, q, "sxyz"))
     return fixed, moving
+
+
+def inner():
+    """안쪽 빈자리: 고정 턱 칸 + 움직이는 턱 칸(Q_CLAMP ~ Q_CLAMP + Q_SLACK). 두 칸 사이가 칸막이(턱 끝 3.2 mm → 뒤 15 mm 쐐기).
+    돌려주는 값: 턱 끝 z, 뒤 z, 몸통 크기용 점(mm, 그리퍼 좌표), 빈자리 메시, 축 중심 cx, cy."""
+    fixed, _ = jaws()
+    f = fixed.vertices * 1000.0
+    m = np.vstack([jaws(q)[1].vertices * 1000.0 for q in np.linspace(Q_CLAMP, Q_CLAMP + Q_SLACK, 4)])
+    tip = min(f[:, 2].min(), m[:, 2].min())
+    back = tip + COVER_L
+    f, m = f[f[:, 2] <= back], m[m[:, 2] <= back]
+    near = np.vstack([f, jaws()[1].vertices * 1000.0])
+    near = near[near[:, 2] < tip + 4]
+    cx, cy = (near[:, 0].min() + near[:, 0].max()) / 2, (near[:, 1].min() + near[:, 1].max()) / 2
+    holes = []
+    for pts in (f, m):
+        g = _grow(pts, CLEAR)
+        g = g[g[:, 2] <= back]
+        holes.append(trimesh.convex.convex_hull(np.vstack([g, g[g[:, 2] > back - 1] + [0, 0, 5]])))  # 뒤로 열림
+    cavity = trimesh.boolean.union(holes, engine="manifold")
+    return tip, back, np.vstack([f, m]), cavity, cx, cy
 
 
 def _grow(pts, d):
@@ -62,17 +86,7 @@ def _circle(r, z, cx, cy, n=96):
 
 
 def build(d_cyl):
-    fixed, moving = jaws()
-    pts = np.vstack([fixed.vertices, moving.vertices]) * 1000.0  # mm, 그리퍼 좌표(-z가 턱 끝 방향)
-    tip = pts[:, 2].min()
-    back = tip + COVER_L
-    jaw = pts[pts[:, 2] <= back]
-    near = jaw[jaw[:, 2] < tip + 4]
-    cx, cy = (near[:, 0].min() + near[:, 0].max()) / 2, (near[:, 1].min() + near[:, 1].max()) / 2
-
-    inner = _grow(jaw, CLEAR)
-    inner = inner[inner[:, 2] <= back]
-    cavity = trimesh.convex.convex_hull(np.vstack([inner, inner[inner[:, 2] > back - 1] + [0, 0, 5]]))
+    tip, back, jaw, cavity, cx, cy = inner()
 
     # 육상전원(AMP) 케이블 플러그 모양: 턱을 감싸는 둥근 몸통 → 결합 링 → 앞으로 좁아지는 코 → 접점(원통)
     r_nose = d_cyl / 2 + POCKET_CLEAR + WALL
@@ -107,16 +121,7 @@ def build_iec(d_cyl, onepiece=False):
     """IEC/IEEE 80005-3 저압 육상전원 플러그(IEC 62613-2 방식) 구조를 흉내 낸 덮개.
     넓은 앞면(접점 판)에 전력 핀 3, 접지 1, 파일럿 2 구멍, 코 테두리의 방향 맞춤 홈, 돌려 잠그는 결합 링,
     카메라 반대쪽(-y)으로 비스듬히 나오는 케이블 부싱. 치수는 그리퍼에 맞춘 것이고 규격 치수가 아니다."""
-    fixed, moving = jaws()
-    pts = np.vstack([fixed.vertices, moving.vertices]) * 1000.0
-    tip = pts[:, 2].min()
-    back = tip + COVER_L
-    jaw = pts[pts[:, 2] <= back]
-    near = jaw[jaw[:, 2] < tip + 4]
-    cx, cy = (near[:, 0].min() + near[:, 0].max()) / 2, (near[:, 1].min() + near[:, 1].max()) / 2
-    inner = _grow(jaw, CLEAR)
-    inner = inner[inner[:, 2] <= back]
-    cavity = trimesh.convex.convex_hull(np.vstack([inner, inner[inner[:, 2] > back - 1] + [0, 0, 5]]))
+    tip, back, jaw, cavity, cx, cy = inner()
 
     front = tip - NOSE
     grown = _grow(jaw, CLEAR + WALL)
@@ -185,9 +190,11 @@ def _finish(body, cavity, d_cyl, cx, cy, front, onepiece=False):
         tip_ahead = NOSE - POCKET + h_cyl
 
     # 출력 방향: 뒤쪽 열린 면을 z = 0에, 코를 +z로(그리퍼 좌표의 -z를 +z로 뒤집음)
-    body.apply_transform(trimesh.transformations.rotation_matrix(np.pi, (1, 0, 0)))
-    body.apply_translation(-np.r_[body.bounds[0][:2], body.bounds[0][2]])
-    info = {"tip_to_front": NOSE, "cyl_tip_ahead_of_jaw": tip_ahead, "axis_xy": (cx, cy)}
+    T = trimesh.transformations.rotation_matrix(np.pi, (1, 0, 0))
+    body.apply_transform(T)
+    T = translation_matrix(-body.bounds[0]) @ T
+    body.apply_translation(-body.bounds[0])
+    info = {"tip_to_front": NOSE, "cyl_tip_ahead_of_jaw": tip_ahead, "axis_xy": (cx, cy), "gripper_to_print": T}
     return body, info
 
 
