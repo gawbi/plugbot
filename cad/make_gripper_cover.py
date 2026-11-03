@@ -7,7 +7,8 @@
 - 앞 코 끝에 원통 꽂는 홈(깊이 POCKET). 원통 끝은 턱 끝보다 약 45 mm 앞(손목 카메라 화면 아래쪽에 보이게).
 - 출력 방향 그대로 저장: 뒤쪽 열린 면이 z = 0(출력판), 코가 +z. 서포트 없이 출력된다.
 CadQuery가 아니라 메시(trimesh + manifold3d)로 만든다(턱 모양이 메시라서). 그래서 STEP은 없다.
-실행: ~/cad_env/bin/python cad/make_gripper_cover.py   결과: cad/out/gripper_cover_D22.5.stl, gripper_cover_D27.5.stl, 미리보기 png
+실행: ~/cad_env/bin/python cad/make_gripper_cover.py   결과: cad/out/gripper_cover_{amp,iec}_{D22.5,D27.5}.stl, 미리보기 png
+- amp: 둥근 몸통과 좁은 코(일반 육상전원 플러그 느낌). iec: IEC/IEEE 80005-3 저압 육상전원 플러그(IEC 62613-2) 구조를 흉내(build_iec).
 """
 
 from pathlib import Path
@@ -97,7 +98,75 @@ def build(d_cyl):
     face = trimesh.creation.annulus(r_min=d_cyl / 2 + 1.6, r_max=d_cyl / 2 + 2.4, height=1.6)  # 앞면 접점 둘레 홈
     face.apply_translation((cx, cy, front))
     body = trimesh.boolean.difference([body, face], engine="manifold")
+    return _finish(body, cavity, d_cyl, cx, cy, front)
 
+
+def build_iec(d_cyl):
+    """IEC/IEEE 80005-3 저압 육상전원 플러그(IEC 62613-2 방식) 구조를 흉내 낸 덮개.
+    넓은 앞면(접점 판)에 전력 핀 3, 접지 1, 파일럿 2 구멍, 코 테두리의 방향 맞춤 홈, 돌려 잠그는 결합 링,
+    카메라 반대쪽(-y)으로 비스듬히 나오는 케이블 부싱. 치수는 그리퍼에 맞춘 것이고 규격 치수가 아니다."""
+    fixed, moving = jaws()
+    pts = np.vstack([fixed.vertices, moving.vertices]) * 1000.0
+    tip = pts[:, 2].min()
+    back = tip + COVER_L
+    jaw = pts[pts[:, 2] <= back]
+    near = jaw[jaw[:, 2] < tip + 4]
+    cx, cy = (near[:, 0].min() + near[:, 0].max()) / 2, (near[:, 1].min() + near[:, 1].max()) / 2
+    inner = _grow(jaw, CLEAR)
+    inner = inner[inner[:, 2] <= back]
+    cavity = trimesh.convex.convex_hull(np.vstack([inner, inner[inner[:, 2] > back - 1] + [0, 0, 5]]))
+
+    front = tip - NOSE
+    grown = _grow(jaw, CLEAR + WALL)
+    r_body = np.hypot(grown[:, 0] - cx, grown[:, 1] - cy).max()
+    r_face = d_cyl / 2 + 9.0  # 접점 판(손목 카메라가 원통 끝을 보게 몸통보다 작게)
+    body = trimesh.convex.convex_hull(np.vstack([
+        _circle(r_body, back, cx, cy), _circle(r_body, tip + 6, cx, cy),
+        _circle(r_face + 1.5, front + 12, cx, cy), _circle(r_face, front + 10, cx, cy), _circle(r_face, front, cx, cy)]))
+    parts = [body]
+    ring = trimesh.creation.cylinder(radius=r_body + 2.2, height=12.0, sections=128)  # 결합 링
+    ring.apply_translation((cx, cy, tip + 1.0))
+    parts.append(ring)
+    for k in range(24):  # 결합 링 손잡이 돌기(로렛)
+        a = 2 * np.pi * k / 24
+        b = trimesh.creation.box((2.0, 2.0, 10.0))
+        b.apply_transform(trimesh.transformations.rotation_matrix(a, (0, 0, 1)))
+        b.apply_translation((cx + (r_body + 2.2) * np.cos(a), cy + (r_body + 2.2) * np.sin(a), tip + 1.0))
+        parts.append(b)
+    # 케이블 부싱: 카메라 반대쪽(-y)으로, 뒤쪽(+z)으로 기울여(출력 때 서포트 없이 37°)
+    d = np.array([0.0, -0.6, 0.8])
+    gl = trimesh.creation.cylinder(radius=8.0, height=34.0, sections=64)
+    gl.apply_transform(trimesh.geometry.align_vectors((0, 0, 1), d))
+    gl.apply_translation(np.array([cx, cy - r_body + 4.0, tip + 14.0]) + d * 14.0)
+    parts.append(gl)
+    for k in range(3):  # 부싱 주름
+        g = trimesh.creation.cylinder(radius=9.2, height=2.0, sections=64)
+        g.apply_transform(trimesh.geometry.align_vectors((0, 0, 1), d))
+        g.apply_translation(np.array([cx, cy - r_body + 4.0, tip + 14.0]) + d * (18.0 + 6.0 * k))
+        parts.append(g)
+    body = trimesh.boolean.union(parts, engine="manifold")
+
+    cuts = []
+    pin_r = d_cyl / 2 + 4.6
+    for ang, dia in ((30, 3.2), (150, 3.2), (270, 3.2), (210, 4.2), (330, 2.0), (90, 2.0)):  # L1 L2 L3, PE, 파일럿 2
+        h = trimesh.creation.cylinder(radius=dia / 2, height=6.0, sections=32)
+        a = np.deg2rad(ang)
+        h.apply_translation((cx + pin_r * np.cos(a), cy + pin_r * np.sin(a), front))
+        cuts.append(h)
+    key = trimesh.creation.box((3.0, 4.0, 16.0))  # 방향 맞춤 홈(코 테두리, 아래쪽)
+    key.apply_translation((cx, cy - r_face, front + 4.0))
+    cuts.append(key)
+    g = trimesh.creation.annulus(r_min=r_body + 1.4, r_max=r_body + 8, height=1.0)  # 결합 링 가운데 줄
+    g.apply_translation((cx, cy, tip + 1.0))
+    cuts.append(g)
+    tail = trimesh.creation.box((400, 400, 100))  # 뒤 면(출력판)보다 뒤로 나간 부분 자르기
+    tail.apply_translation((cx, cy, back + 50))
+    cuts.append(tail)
+    body = trimesh.boolean.difference([body] + cuts, engine="manifold")
+    return _finish(body, cavity, d_cyl, cx, cy, front)
+
+
+def _finish(body, cavity, d_cyl, cx, cy, front):
     pocket = trimesh.creation.cylinder(radius=d_cyl / 2 + POCKET_CLEAR, height=POCKET * 2, sections=128)
     pocket.apply_translation((cx, cy, front))
     body = trimesh.boolean.difference([body, cavity, pocket], engine="manifold")
@@ -119,7 +188,7 @@ def preview(meshes, path):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-    fig = plt.figure(figsize=(6 * len(meshes), 6))
+    fig = plt.figure(figsize=(5 * len(meshes), 5))
     for i, (name, m) in enumerate(meshes.items()):
         ax = fig.add_subplot(1, len(meshes), i + 1, projection="3d")
         ax.add_collection3d(Poly3DCollection(m.triangles, facecolor="#7c5cff", edgecolor="#3b2a99", linewidths=0.05, alpha=1.0))
@@ -135,11 +204,12 @@ def preview(meshes, path):
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
     made = {}
-    for name, (d, h) in CYLINDERS.items():
-        m, info = build(d)
-        assert m.is_watertight, name
-        m.export(OUT / f"gripper_cover_{name}.stl")
-        made[name] = m
-        print(f"gripper_cover_{name}.stl  크기 {np.round(m.extents, 1)} mm, 부피 {m.volume / 1000:.1f} cm3, "
-              f"원통 끝이 턱 끝보다 {info['cyl_tip_ahead_of_jaw']:.1f} mm 앞")
+    for style, fn in (("amp", build), ("iec", build_iec)):
+        for name, (d, h) in CYLINDERS.items():
+            m, info = fn(d)
+            assert m.is_watertight, (style, name)
+            m.export(OUT / f"gripper_cover_{style}_{name}.stl")
+            made[f"{style} {name}"] = m
+            print(f"gripper_cover_{style}_{name}.stl  크기 {np.round(m.extents, 1)} mm, 부피 {m.volume / 1000:.1f} cm3, "
+                  f"원통 끝이 턱 끝보다 {info['cyl_tip_ahead_of_jaw']:.1f} mm 앞")
     preview(made, OUT / "gripper_cover_preview.png")
