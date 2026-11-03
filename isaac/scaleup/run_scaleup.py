@@ -32,6 +32,8 @@ ap.add_argument("--headless", action="store_true")
 ap.add_argument("--frames-dir", default=str(ROOT / "data" / "scaleup_frames"))
 ap.add_argument("--trials", type=int, default=0, help="0이면 영상 1회. N이면 렌더 없이 시드 0..N-1을 센다")
 ap.add_argument("--fps", type=int, default=30)
+ap.add_argument("--livery", choices=["panstar", "plain"], default="panstar",
+                help="panstar: 팬스타 미라클호 사진을 흉내 낸 현측 무늬(make_livery.py), plain: 예전 흰 선체와 빨간 띠")
 ap.add_argument("--max-frames", type=int, default=0, help="0보다 크면 이만큼만 렌더(구도 확인용)")
 ap.add_argument("--replay", default="", help="SO-101 시범 에피소드 폴더(data/isaac_side/episode_XXXX). 그 궤적을 UR10e로 옮겨 재생한다\n"
                 "(이종 원격조종 시각화: 리더 팔 대신 녹화된 시범)")
@@ -134,6 +136,27 @@ MAT = {k: material(k, *v) for k, v in {
     "window": ((0.05, 0.08, 0.12), 0.1), "panel": ((0.22, 0.24, 0.27), 0.5), "socket": ((0.95, 0.55, 0.10), 0.45),
     "plug": ((0.18, 0.19, 0.21), 0.35), "pin": ((0.80, 0.80, 0.82), 0.25), "fender": ((0.06, 0.06, 0.06), 0.8),
     "pedestal": ((0.35, 0.37, 0.40), 0.5), "marking": ((0.95, 0.78, 0.10), 0.6)}.items()}
+MAT["orange"] = material("orange", (0.91, 0.50, 0.16), 0.45)
+MAT["glass_blue"] = material("glass_blue", (0.16, 0.36, 0.62), 0.15)
+
+
+def texture_material(name, png):
+    """PNG를 diffuseColor로 쓰는 재질(메시 primvar st)."""
+    m = UsdShade.Material.Define(stage, f"/World/Looks/{name}")
+    sh = UsdShade.Shader.Define(stage, f"/World/Looks/{name}/S")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.4)
+    st = UsdShade.Shader.Define(stage, f"/World/Looks/{name}/St")
+    st.CreateIdAttr("UsdPrimvarReader_float2")
+    st.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+    tex = UsdShade.Shader.Define(stage, f"/World/Looks/{name}/Tex")
+    tex.CreateIdAttr("UsdUVTexture")
+    tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(str(png))
+    tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st.ConnectableAPI(), "result")
+    tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(tex.ConnectableAPI(), "rgb")
+    m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+    return m
 
 
 def emissive(name, rgb):
@@ -261,19 +284,40 @@ def ship_box(name, center_world, size, mat):
 
 ship_box("Hull", (HULL_X + BEAM / 2, HY, (DECK_Z + KEEL_Z) / 2), (BEAM, HULL_LEN, DECK_Z - KEEL_Z), "hull")
 ship_box("HullLow", (HULL_X + BEAM / 2, HY, (WATER_Z + 0.4 + KEEL_Z) / 2), (BEAM + 0.02, HULL_LEN + 0.02, WATER_Z + 0.4 - KEEL_Z), "hull_low")
-ship_box("Stripe", (HULL_X + BEAM / 2, HY, DECK_Z - 0.35), (BEAM + 0.03, HULL_LEN + 0.03, 0.18), "stripe")
+if args.livery == "plain":
+    ship_box("Stripe", (HULL_X + BEAM / 2, HY, DECK_Z - 0.35), (BEAM + 0.03, HULL_LEN + 0.03, 0.18), "stripe")
+else:  # 부두 쪽 현측 전체에 무늬 그림(왼쪽 = 뱃머리 +y, 오른쪽 = 선미 -y). 반대쪽 현측은 보이지 않는다
+    MAT["livery"] = texture_material("livery", HERE / "livery_panstar.png")
+    _lx = HULL_X - 0.006
+    _y0, _y1 = HY + HULL_LEN / 2, HY - HULL_LEN / 2
+    _q = [(_lx, _y0, DECK_Z), (_lx, _y1, DECK_Z), (_lx, _y1, KEEL_Z), (_lx, _y0, KEEL_Z)]
+    liv = UsdGeom.Mesh.Define(stage, "/World/Ship/Livery")
+    liv.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(*map(float, np.asarray(v) - SHIP_O)) for v in _q]))
+    liv.CreateFaceVertexIndicesAttr(Vt.IntArray([0, 1, 2, 3]))
+    liv.CreateFaceVertexCountsAttr(Vt.IntArray([4]))
+    liv.CreateSubdivisionSchemeAttr("none")
+    liv.CreateDoubleSidedAttr(True)
+    UsdGeom.PrimvarsAPI(liv).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(
+        Vt.Vec2fArray([Gf.Vec2f(0, 1), Gf.Vec2f(1, 1), Gf.Vec2f(1, 0), Gf.Vec2f(0, 0)]))
+    UsdShade.MaterialBindingAPI.Apply(liv.GetPrim()).Bind(MAT["livery"])
 ship_box("Cabin", (HULL_X + BEAM / 2 + 0.6, HY - 3.0, DECK_Z + 1.5), (BEAM - 2.0, 24.0, 3.0), "cabin")
 ship_box("Windows", (HULL_X + 1.58, HY - 3.0, DECK_Z + 1.9), (0.04, 22.0, 0.9), "window")
 ship_box("Bridge", (HULL_X + BEAM / 2 + 1.5, HY + 6.5, DECK_Z + 3.9), (6.0, 5.0, 1.8), "cabin")
 ship_box("BridgeWin", (HULL_X + 3.48, HY + 6.5, DECK_Z + 4.1), (0.04, 4.6, 0.7), "window")
 ship_box("Panel", (HULL_X - 0.01, 0, ENTRANCE0[2]), (0.04, 1.2, 1.2), "panel")
 ship_box("PanelMark", (HULL_X - 0.035, 0, ENTRANCE0[2] + 0.7), (0.01, 1.2, 0.12), "marking")
-for i, y in enumerate(np.arange(HY - 17.0, HY + 17.5, 1.6)):  # 둥근 창(현측)
+for i, y in enumerate(np.arange(HY - 17.0, HY + 17.5, 1.6) if args.livery == "plain" else []):  # 둥근 창(현측)
     if abs(y) > 1.0:
         c = cylinder(f"/World/Ship/Port_{i}", np.array([HULL_X - 0.005, y, DECK_Z - 1.0]) - SHIP_O, 0.17, 0.02, "window", axis="X")
 for i, y in enumerate(np.arange(HY - 19.5, HY + 20.0, 1.5)):  # 난간 기둥
     cylinder(f"/World/Ship/Rail_{i}", np.array([HULL_X + 0.15, y, DECK_Z + 0.5]) - SHIP_O, 0.02, 1.0, "pedestal")
 box("/World/Ship/RailTop", np.array([HULL_X + 0.15, HY, DECK_Z + 1.0]) - SHIP_O, (0.05, 39.0, 0.05), "pedestal")
+if args.livery == "panstar":  # 사진처럼 흰 상부 갑판 두 층, 파란 창 띠, 선미 쪽 주황 구조물
+    UsdShade.MaterialBindingAPI(stage.GetPrimAtPath("/World/Ship/Windows")).Bind(MAT["glass_blue"])
+    ship_box("Cabin2", (HULL_X + BEAM / 2 + 1.0, HY - 1.0, DECK_Z + 3.6), (BEAM - 3.0, 20.0, 1.4), "cabin")
+    ship_box("Windows2", (HULL_X + 2.48, HY - 1.0, DECK_Z + 3.65), (0.04, 19.0, 0.6), "glass_blue")
+    ship_box("AftOrange", (HULL_X + BEAM / 2 + 1.0, HY - 15.0, DECK_Z + 3.6), (BEAM - 4.0, 4.0, 2.4), "orange")
+    ship_box("AftOrangeTop", (HULL_X + BEAM / 2 + 1.0, HY - 15.0, DECK_Z + 4.9), (BEAM - 5.0, 3.0, 0.3), "glass_blue")
 cylinder("/World/Ship/Mast", np.array([HULL_X + BEAM / 2 + 1.5, HY + 6.5, DECK_Z + 6.8]) - SHIP_O, 0.12, 4.0, "cabin")
 LED_PANEL = cylinder("/World/Ship/PanelLed", np.array([HULL_X - 0.04, 0.45, ENTRANCE0[2] + 0.45]) - SHIP_O, 0.05, 0.02, "led_wait", axis="X")
 LED_CAB = box("/World/CabinetLed", CABINET + (0.26, 0.0, 1.38), (0.02, 0.18, 0.06), "led_wait")
@@ -379,6 +423,8 @@ WIDE_PATH = [((-1.6, -9.5, 3.4), (1.2, 1.0, 1.0)), ((-0.7, -6.2, 2.5), (1.1, 0.3
 CAMS = {"wide": cam("/World/CamWide", *WIDE_PATH[0], 20.0),
         "close": cam("/World/CamClose", (0.55, -1.25, 1.45), (1.15, 0.0, 0.98), 22.0),
         "sea": cam("/World/CamSea", (1.7, -17.0, 3.6), (0.5, 0.0, 1.0), 20.0)}  # 부두와 선체 사이 틈의 연장선, 선미 바깥 바다 위
+if args.livery == "panstar":  # 부두 안쪽 높은 곳에서 현측 무늬와 로봇을 함께(편집본 첫 장면)
+    CAMS["ship"] = cam("/World/CamShip", (-13.0, -1.5, 6.5), (1.4, 5.0, 1.4), 16.0)
 
 world.reset()
 dof = [robot.get_dof_index(j) for j in JOINTS]

@@ -58,13 +58,15 @@ def caption(img, t, phase, scale=1.0, text=None):
     return np.asarray(im)
 
 
-def shot_plan(meta):
-    """편집본의 장면 순서: 바다(전체 상황) → 넓은 시점(접근, 대기) → 근접(삽입 0.5 s 전부터 연결 1.5 s 뒤까지) → 넓은 시점."""
+def shot_plan(meta, ship=False):
+    """편집본의 장면 순서: (팬스타 무늬면 선박 현측 3 s →) 바다(전체 상황) → 넓은 시점(접근, 대기) → 근접(삽입 0.5 s 전부터 연결 1.5 s 뒤까지) → 넓은 시점."""
     t_ins = next((m["t"] for m in meta if m["phase"] == "insert"), None)
     t_con = next((m["t"] for m in meta if m["phase"] == "connected"), None)
     plan = []
     for m in meta:
-        if m["t"] < 3.5:
+        if ship and m["t"] < 3.0:
+            plan.append("ship")
+        elif m["t"] < (5.5 if ship else 3.5):
             plan.append("sea")
         elif t_ins is not None and t_ins - 0.5 <= m["t"] and (t_con is None or m["t"] <= t_con + 1.5):
             plan.append("close")
@@ -115,11 +117,11 @@ def main():
         teleop(fd, run, a.fps)
         return
     meta = json.loads((fd / "run.json").read_text())["frames"]
-    views = [v for v in ("sea", "wide", "close") if (fd / v).exists()]
+    views = [v for v in ("ship", "sea", "wide", "close") if (fd / v).exists()]
     names = ["edit", "side_by_side"] + views
     writers = {k: imageio.get_writer(str(OUT / f"scaleup_{k}.mp4"), fps=a.fps, codec="libx264", quality=8, macro_block_size=8)
                for k in names}
-    plan = shot_plan(meta) if "sea" in views else ["wide"] * len(meta)
+    plan = shot_plan(meta, "ship" in views) if "sea" in views else ["wide"] * len(meta)
     gif = []
     for i, m in enumerate(meta):
         img = {v: np.asarray(Image.open(fd / v / f"{m['k']:05d}.png").convert("RGB")) for v in views}
