@@ -7,7 +7,8 @@
 - 앞 코 끝에 원통 꽂는 홈(깊이 POCKET). 원통 끝은 턱 끝보다 약 45 mm 앞(손목 카메라 화면 아래쪽에 보이게).
 - 출력 방향 그대로 저장: 뒤쪽 열린 면이 z = 0(출력판), 코가 +z. 서포트 없이 출력된다.
 CadQuery가 아니라 메시(trimesh + manifold3d)로 만든다(턱 모양이 메시라서). 그래서 STEP은 없다.
-실행: ~/cad_env/bin/python cad/make_gripper_cover.py   결과: cad/out/gripper_cover_{amp,iec}_{D22.5,D27.5}.stl, 미리보기 png
+실행: ~/cad_env/bin/python cad/make_gripper_cover.py   결과: cad/out/gripper_cover_{amp,iec,iec_onepiece}_{D22.5,D27.5}.stl, 미리보기 png
+- iec_onepiece: iec 덮개 코에 원통 접점을 붙인 한 덩어리(원통을 따로 뽑아 붙이지 않는다). 끝 모따기 1.5 mm.
 - amp: 둥근 몸통과 좁은 코(일반 육상전원 플러그 느낌). iec: IEC/IEEE 80005-3 저압 육상전원 플러그(IEC 62613-2) 구조를 흉내(build_iec).
 """
 
@@ -27,7 +28,8 @@ CLEAR = 0.5  # 턱과 덮개 안쪽 여유(한쪽)
 WALL = 2.4  # 덮개 벽
 NOSE = 30.0  # 턱 끝에서 코 앞면까지
 POCKET = 10.0  # 원통 꽂는 홈 깊이
-POCKET_CLEAR = 0.15  # 홈 반지름 여유(빡빡하면 사포, 헐거우면 순간접착제)
+POCKET_CLEAR = 0.15
+PIN_CHAMFER = 1.5  # 한 덩어리형 핀 끝 모따기(소켓에 들어가기 쉽게)  # 홈 반지름 여유(빡빡하면 사포, 헐거우면 순간접착제)
 RIBS = 16  # 몸통 돌기 수
 CYLINDERS = {"D22.5": (22.5, 27.5), "D27.5": (27.5, 22.5)}  # cad/extra/ 원통 (지름, 길이)
 
@@ -101,7 +103,7 @@ def build(d_cyl):
     return _finish(body, cavity, d_cyl, cx, cy, front)
 
 
-def build_iec(d_cyl):
+def build_iec(d_cyl, onepiece=False):
     """IEC/IEEE 80005-3 저압 육상전원 플러그(IEC 62613-2 방식) 구조를 흉내 낸 덮개.
     넓은 앞면(접점 판)에 전력 핀 3, 접지 1, 파일럿 2 구멍, 코 테두리의 방향 맞춤 홈, 돌려 잠그는 결합 링,
     카메라 반대쪽(-y)으로 비스듬히 나오는 케이블 부싱. 치수는 그리퍼에 맞춘 것이고 규격 치수가 아니다."""
@@ -163,22 +165,43 @@ def build_iec(d_cyl):
     tail.apply_translation((cx, cy, back + 50))
     cuts.append(tail)
     body = trimesh.boolean.difference([body] + cuts, engine="manifold")
-    return _finish(body, cavity, d_cyl, cx, cy, front)
+    return _finish(body, cavity, d_cyl, cx, cy, front, onepiece)
 
 
-def _finish(body, cavity, d_cyl, cx, cy, front):
-    pocket = trimesh.creation.cylinder(radius=d_cyl / 2 + POCKET_CLEAR, height=POCKET * 2, sections=128)
-    pocket.apply_translation((cx, cy, front))
-    body = trimesh.boolean.difference([body, cavity, pocket], engine="manifold")
+def _finish(body, cavity, d_cyl, cx, cy, front, onepiece=False):
+    h_cyl = CYLINDERS_LEN[d_cyl]
+    if onepiece:  # 원통(지름 d_cyl, 길이 h_cyl)을 코에 붙여 한 덩어리로. 끝 모따기 PIN_CHAMFER
+        r, L, c = d_cyl / 2, h_cyl + 2.0, PIN_CHAMFER
+        pin = trimesh.creation.revolve([[0, 0], [r, 0], [r, L - c], [r - c, L], [0, L]], sections=128)
+        pin.apply_transform(trimesh.transformations.rotation_matrix(np.pi, (1, 0, 0)))  # 코 앞(-z)으로
+        pin.apply_translation((cx, cy, front + 2.0))
+        body = trimesh.boolean.union([body, pin], engine="manifold")
+        body = trimesh.boolean.difference([body, cavity], engine="manifold")
+        tip_ahead = NOSE + h_cyl
+    else:
+        pocket = trimesh.creation.cylinder(radius=d_cyl / 2 + POCKET_CLEAR, height=POCKET * 2, sections=128)
+        pocket.apply_translation((cx, cy, front))
+        body = trimesh.boolean.difference([body, cavity, pocket], engine="manifold")
+        tip_ahead = NOSE - POCKET + h_cyl
 
     # 출력 방향: 뒤쪽 열린 면을 z = 0에, 코를 +z로(그리퍼 좌표의 -z를 +z로 뒤집음)
     body.apply_transform(trimesh.transformations.rotation_matrix(np.pi, (1, 0, 0)))
     body.apply_translation(-np.r_[body.bounds[0][:2], body.bounds[0][2]])
-    info = {"tip_to_front": NOSE, "cyl_tip_ahead_of_jaw": NOSE - POCKET + CYLINDERS_LEN[d_cyl], "axis_xy": (cx, cy)}
+    info = {"tip_to_front": NOSE, "cyl_tip_ahead_of_jaw": tip_ahead, "axis_xy": (cx, cy)}
     return body, info
 
 
 CYLINDERS_LEN = {d: h for d, h in CYLINDERS.values()}
+
+
+def _simplify(m, tol=0.01):
+    """불린 연산이 남긴 넓이 0에 가까운 삼각형을 manifold3d로 접어 없앤다(STL float32로 저장해도 닫힌 하나의 몸체)."""
+    import manifold3d
+
+    mm = manifold3d.Manifold(manifold3d.Mesh(vert_properties=np.asarray(m.vertices, np.float32),
+                                             tri_verts=np.asarray(m.faces, np.uint32))).simplify(tol)
+    out = mm.to_mesh()
+    return trimesh.Trimesh(np.asarray(out.vert_properties)[:, :3], np.asarray(out.tri_verts), process=True)
 
 
 def preview(meshes, path):
@@ -204,9 +227,10 @@ def preview(meshes, path):
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
     made = {}
-    for style, fn in (("amp", build), ("iec", build_iec)):
+    for style, fn in (("amp", build), ("iec", build_iec), ("iec_onepiece", lambda d: build_iec(d, onepiece=True))):
         for name, (d, h) in CYLINDERS.items():
             m, info = fn(d)
+            m = _simplify(m)
             assert m.is_watertight, (style, name)
             m.export(OUT / f"gripper_cover_{style}_{name}.stl")
             made[f"{style} {name}"] = m
