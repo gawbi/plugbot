@@ -17,8 +17,8 @@ F_ID="${F_ID:-plug_follower}"
 L_ID="${L_ID:-plug_leader}"
 
 # 카메라. 번호(/dev/videoN)는 꽂는 순서로 바뀌므로 /dev/v4l/by-id/ 경로를 권한다. 노트북 내장 카메라(HP True Vision)는 쓰지 않는다
-FRONT_CAM="${FRONT_CAM:-}"
-WRIST_CAM="${WRIST_CAM:-}"
+FRONT_CAM="${FRONT_CAM:-/dev/v4l/by-id/usb-046d_C270_HD_WEBCAM_200901010001-video-index0}"  # 옆면 Logitech C270(2026-11-03)
+WRIST_CAM="${WRIST_CAM:-/dev/v4l/by-id/usb-Generic_USB_Camera_200901010001-video-index0}"  # 손목 카메라
 CAMS="{ front: {type: opencv, index_or_path: ${FRONT_CAM}, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: ${WRIST_CAM}, width: 640, height: 480, fps: 30}}"
 
 TASK="Insert the plug into the socket"
