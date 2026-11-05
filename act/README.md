@@ -53,6 +53,7 @@ bash act/check.sh
 bash act/teleop.sh
 
 # 3. 녹화(이어서 녹화도 같은 명령). 정지 50회, 흔들림 60~80회. Rerun 창에 카메라가 떠서 보면서 녹화한다
+#    화면으로 하려면: bash act/record_gui.sh → 브라우저에서 시작, 다음, 다시, 끝 버튼과 소켓 자리 기록(plugbot_positions.json)
 #    끝에 나오는 Cadence가 30 Hz 가까이인지 확인(느리면 SHOW=false). 녹화 뒤 bash act/view.sh static 0 으로 다시 본다
 bash act/record.sh static 25
 bash act/record.sh moving 30

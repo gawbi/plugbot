@@ -1,0 +1,222 @@
+"""시범 녹화 화면(브라우저). act/record.sh(lerobot-record)를 가짜 터미널(pty) 안에서 돌리고, 버튼으로 n(다음), r(다시), q(끝)를 보낸다.
+
+- 카메라와 관절은 lerobot이 띄우는 Rerun 창에서 본다(카메라는 녹화 프로그램이 쓰고 있어 이 화면에는 없다).
+- 녹화를 시작할 때 고른 '소켓 자리'를 에피소드 번호마다 기록한다: <데이터셋>/plugbot_positions.json.
+  나중에 자리별 개수를 맞추고, 녹화하지 않은 자리에서 시험할 때 쓴다.
+실행: bash act/record_gui.sh → http://127.0.0.1:8200
+"""
+
+import json
+import os
+import pty
+import re
+import subprocess
+import threading
+import time
+from collections import deque
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
+
+ACT = Path(__file__).resolve().parent
+DATA = Path.home() / ".cache" / "huggingface" / "lerobot" / os.environ.get("HF_USER", "local")
+SEC = {"static": 25, "moving": 30}
+RESET_S = 20
+POSITIONS = ["가운데", "왼쪽 2 cm", "오른쪽 2 cm", "로봇 쪽 1.5 cm", "멀리 1.5 cm"]
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+app = FastAPI()
+S = {"proc": None, "fd": None, "kind": "static", "position": POSITIONS[0], "phase": "대기", "episode": None,
+     "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": ""}
+LOCK = threading.Lock()
+
+
+def ds_root(kind):
+    return DATA / f"plug_{kind}"
+
+
+def saved_count(kind):
+    try:
+        return json.loads((ds_root(kind) / "meta" / "info.json").read_text())["total_episodes"]
+    except Exception:
+        return 0
+
+
+def positions_file(kind):
+    return ds_root(kind) / "plugbot_positions.json"
+
+
+def load_positions(kind):
+    try:
+        return json.loads(positions_file(kind).read_text())
+    except Exception:
+        return {}
+
+
+def tag_episode(kind, ep, pos):
+    if not ds_root(kind).exists():
+        return
+    d = load_positions(kind)
+    d[str(ep)] = pos
+    positions_file(kind).write_text(json.dumps(d, ensure_ascii=False, indent=1))
+
+
+def reader(fd, proc):
+    buf = ""
+    while True:
+        try:
+            data = os.read(fd, 4096)
+        except OSError:
+            break
+        if not data:
+            break
+        buf += data.decode(errors="ignore")
+        *lines, buf = re.split(r"[\r\n]+", buf)
+        for line in lines:
+            line = ANSI.sub("", line).strip()
+            if not line:
+                continue
+            with LOCK:
+                S["log"].append(line)
+                m = re.search(r"Recording episode (\d+)", line)
+                if m:
+                    S["episode"] = int(m.group(1))
+                    S["phase"], S["phase_t0"] = "녹화 중", time.time()
+                    tag_episode(S["kind"], S["episode"], S["position"])
+                elif "Reset the environment" in line:
+                    S["phase"], S["phase_t0"] = "정리 시간(소켓 옮기기)", time.time()
+                elif "Re-record episode" in line:
+                    S["phase"] = "다시 찍기"
+                elif "Stop recording" in line:
+                    S["phase"] = "저장 중"
+                elif "Error" in line or "Traceback" in line:
+                    S["error"] = line
+    proc.wait()
+    with LOCK:
+        S["phase"] = "대기" if proc.returncode == 0 else f"끝남(코드 {proc.returncode})"
+        S["proc"], S["fd"] = None, None
+
+
+class Start(BaseModel):
+    kind: str = "static"
+    n: int = 10
+    position: str = POSITIONS[0]
+
+
+@app.post("/start")
+def start(req: Start):
+    with LOCK:
+        if S["proc"] is not None:
+            return JSONResponse({"ok": False, "msg": "이미 녹화 중"}, 409)
+        master, slave = pty.openpty()
+        env = dict(os.environ, XDG_SESSION_TYPE="wayland", PYTHONUNBUFFERED="1")  # 키 입력을 터미널(pty)로 받게
+        proc = subprocess.Popen(["bash", str(ACT / "record.sh"), req.kind, str(req.n)], stdin=slave, stdout=slave,
+                                stderr=slave, cwd=ACT.parent, env=env, start_new_session=True)
+        os.close(slave)
+        S.update(proc=proc, fd=master, kind=req.kind, position=req.position, phase="연결 중", episode=None,
+                 phase_t0=time.time(), target=req.n, added=saved_count(req.kind), error="")
+        S["log"].clear()
+    threading.Thread(target=reader, args=(master, proc), daemon=True).start()
+    return {"ok": True}
+
+
+@app.post("/key/{k}")
+def key(k: str):
+    if k not in ("n", "r", "q"):
+        return JSONResponse({"ok": False}, 400)
+    with LOCK:
+        if S["fd"] is None:
+            return JSONResponse({"ok": False, "msg": "녹화 중이 아님"}, 409)
+        os.write(S["fd"], k.encode())
+    return {"ok": True}
+
+
+@app.post("/position")
+def set_position(req: Start):
+    with LOCK:
+        S["position"] = req.position
+    return {"ok": True}
+
+
+@app.get("/state")
+def state():
+    with LOCK:
+        kind = S["kind"]
+        dur = SEC.get(kind, 25) if S["phase"] == "녹화 중" else RESET_S if S["phase"].startswith("정리") else None
+        left = max(0.0, dur - (time.time() - S["phase_t0"])) if dur else None
+        pos = load_positions(kind)
+        saved = saved_count(kind)
+        counts = {}
+        for ep, p in pos.items():
+            if int(ep) < saved:
+                counts[p] = counts.get(p, 0) + 1
+        return {"running": S["proc"] is not None, "kind": kind, "phase": S["phase"], "episode": S["episode"],
+                "left": left, "saved": saved, "session": saved - S["added"] if S["proc"] else None, "target": S["target"],
+                "position": S["position"], "counts": counts, "error": S["error"], "log": list(S["log"])[-14:],
+                "positions": POSITIONS, "root": str(ds_root(kind))}
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return PAGE
+
+
+PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>PlugBot 시범 녹화</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0f1720;--card:#18222e;--fg:#e8eef5;--mut:#93a4b8;--acc:#7c5cff;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Noto Sans KR',system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:18px}
+h1{font-size:22px;margin:0 0 12px}.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}label{color:var(--mut);font-size:14px}
+select,input{background:#0b121a;color:var(--fg);border:1px solid #2b3a4b;border-radius:8px;padding:8px;font-size:16px}
+button{border:0;border-radius:12px;padding:14px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff}
+.start{background:var(--acc)}.next{background:var(--ok);flex:2}.redo{background:var(--warn);flex:1}.quit{background:var(--bad);flex:1}
+button:disabled{opacity:.35;cursor:default}
+.phase{font-size:34px;font-weight:800}.big{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums}
+.bar{height:12px;background:#0b121a;border-radius:6px;overflow:hidden}.bar>div{height:100%;background:var(--acc);transition:width .2s}
+.pos{padding:10px 14px;border-radius:10px;background:#0b121a;border:2px solid #2b3a4b;cursor:pointer;font-size:16px}
+.pos.on{border-color:var(--acc);background:#241d4d}
+pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(--mut);white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
+.err{color:var(--bad)}.mut{color:var(--mut);font-size:14px}
+</style></head><body><main>
+<h1>PlugBot 시범 녹화 (ACT)</h1>
+<div class="card"><div class="row">
+ <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
+ <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
+ <button class="start" id="start">녹화 시작</button></div>
+ <p class="mut">카메라 화면은 녹화가 시작되면 뜨는 Rerun 창에서 봅니다. 같은 종류로 다시 시작하면 이어서 녹화됩니다.</p></div>
+<div class="card"><div class="mut" style="margin-bottom:8px">소켓 자리 (바꾸면 다음 에피소드부터 이 자리로 기록)</div><div class="row" id="poss"></div>
+ <div class="mut" id="counts" style="margin-top:10px"></div></div>
+<div class="card"><div class="row" style="justify-content:space-between"><div><div class="phase" id="phase">대기</div>
+ <div class="mut" id="sub"></div></div><div class="big" id="left"></div></div>
+ <div class="bar" style="margin:12px 0"><div id="bar" style="width:0"></div></div>
+ <div class="row"><button class="next" id="next">다음 (성공, 저장) [→ 또는 스페이스]</button>
+ <button class="redo" id="redo">다시 찍기 [←]</button><button class="quit" id="quit">끝내기 [Esc]</button></div>
+ <p class="mut">녹화 중: 소켓 앞에서 멈춰 맞추고, 천천히 밀어 넣고, 끝까지 들어가면 1~2초 멈춘 뒤 살짝 빼고 [다음]. 실패했으면 [다시 찍기].<br>
+ 정리 시간: 팔을 홈 근처로, 소켓을 표시한 자리로 옮기고 위 '소켓 자리'를 맞게 누른다. 준비되면 [다음]으로 바로 다음 녹화.</p>
+ <div class="err" id="err"></div></div>
+<div class="card"><div class="mut" style="margin-bottom:6px">로그</div><pre id="log"></pre></div>
+</main><script>
+const $=id=>document.getElementById(id);let st=null,lastPos=null;
+async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):null});return r.json()}
+$('start').onclick=()=>post('/start',{kind:$('kind').value,n:+$('n').value,position:lastPos||'가운데'});
+$('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
+document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();post('/key/n')}
+ else if(e.key==='ArrowLeft')post('/key/r');else if(e.key==='Escape')$('quit').click()});
+function renderPos(list,cur){const b=$('poss');if(b.childElementCount!==list.length){b.innerHTML='';list.forEach(p=>{const d=document.createElement('div');d.className='pos';d.textContent=p;
+ d.onclick=()=>{lastPos=p;post('/position',{position:p});[...b.children].forEach(c=>c.classList.toggle('on',c.textContent===p))};b.appendChild(d)})}
+ [...b.children].forEach(c=>c.classList.toggle('on',c.textContent===cur))}
+async function tick(){try{st=await (await fetch('/state')).json()}catch(e){return}
+ if(!lastPos)lastPos=st.position;renderPos(st.positions,st.running?st.position:lastPos);
+ $('phase').textContent=st.phase;$('phase').style.color=st.phase==='녹화 중'?'#22c55e':st.phase.startsWith('정리')?'#f59e0b':'';
+ $('sub').textContent=(st.episode!==null?`에피소드 ${st.episode}  `:'')+`저장된 에피소드 ${st.saved}`+(st.running?`  (이번 ${st.session}/${st.target})`:'')+`  자리: ${st.running?st.position:lastPos}`;
+ $('left').textContent=st.left!==null?Math.ceil(st.left)+'s':'';
+ const dur=st.phase==='녹화 중'?(st.kind==='moving'?30:25):20;$('bar').style.width=st.left!==null?(100*(1-st.left/dur))+'%':'0';
+ $('counts').textContent='자리별 저장 개수: '+(Object.entries(st.counts).map(([k,v])=>`${k} ${v}`).join(', ')||'아직 없음')+`   (${st.root})`;
+ ['next','redo','quit'].forEach(i=>$(i).disabled=!st.running);$('start').disabled=st.running;$('kind').disabled=st.running;
+ $('err').textContent=st.error||'';$('log').textContent=st.log.join('\\n');}
+setInterval(tick,300);tick();
+</script></body></html>"""
