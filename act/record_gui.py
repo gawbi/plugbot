@@ -1,6 +1,6 @@
 """시범 녹화 화면(브라우저). act/record.sh(lerobot-record)를 가짜 터미널(pty) 안에서 돌리고, 버튼으로 n(다음), r(다시), q(끝)를 보낸다.
 
-- 카메라 두 대를 이 화면에 띄운다(act/record_preview.py가 /dev/shm에 쓴 영상). Rerun 창은 끈다.
+- 카메라 두 대를 이 화면에 늘 띄운다. 평소에는 이 화면이 카메라를 직접 열고, 녹화 중에는 act/record_preview.py가 /dev/shm에 쓴 영상. Rerun 창은 끈다.
 - 녹화를 시작할 때 고른 '소켓 자리'를 에피소드 번호마다 기록한다: <데이터셋>/plugbot_positions.json.
   나중에 자리별 개수를 맞추고, 녹화하지 않은 자리에서 시험할 때 쓴다.
 실행: bash act/record_gui.sh → http://127.0.0.1:8200
@@ -97,6 +97,7 @@ def reader(fd, proc):
     with LOCK:
         S["phase"] = "대기" if proc.returncode == 0 else f"끝남(코드 {proc.returncode})"
         S["proc"], S["fd"] = None, None
+    idle_start()  # 녹화가 끝나면 다시 미리보기
 
 
 class Start(BaseModel):
@@ -110,6 +111,7 @@ def start(req: Start):
     with LOCK:
         if S["proc"] is not None:
             return JSONResponse({"ok": False, "msg": "이미 녹화 중"}, 409)
+        idle_stop()  # 카메라를 녹화 프로그램에 넘긴다
         master, slave = pty.openpty()
         env = dict(os.environ, XDG_SESSION_TYPE="wayland", PYTHONUNBUFFERED="1", PREVIEW="1", SHOW="false")  # 키 입력을 터미널(pty)로 받게
         proc = subprocess.Popen(["bash", str(ACT / "record.sh"), req.kind, str(req.n)], stdin=slave, stdout=slave,
@@ -159,6 +161,62 @@ def state():
 
 
 CAM = Path("/dev/shm/plugbot_cam")
+
+
+def _env_cam(name):
+    """act/env.sh의 FRONT_CAM, WRIST_CAM 기본 경로(환경변수가 있으면 그것)."""
+    if os.environ.get(name):
+        return os.environ[name]
+    m = re.search(name + r'="\$\{' + name + r':-([^}]*)\}"', (ACT / "env.sh").read_text())
+    return m.group(1) if m else ""
+
+
+IDLE = {"stop": threading.Event(), "thread": None}
+
+
+def idle_preview(stop):
+    """녹화하지 않을 때 이 화면이 카메라를 직접 열어 미리보기를 쓴다. 녹화를 시작하면 놓아 준다."""
+    import cv2
+
+    CAM.mkdir(parents=True, exist_ok=True)
+    caps = {}
+    for name, var in (("front", "FRONT_CAM"), ("wrist", "WRIST_CAM")):
+        c = cv2.VideoCapture(_env_cam(var), cv2.CAP_V4L2)
+        c.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        c.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        caps[name] = c
+    try:
+        while not stop.is_set():
+            for name, c in caps.items():
+                ok, f = c.read()
+                if ok:
+                    ok, jpg = cv2.imencode(".jpg", f, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                    if ok:
+                        (CAM / f"{name}.tmp").write_bytes(jpg.tobytes())
+                        (CAM / f"{name}.tmp").replace(CAM / f"{name}.jpg")
+            time.sleep(1 / 15)
+    finally:
+        for c in caps.values():
+            c.release()
+
+
+def idle_start():
+    if IDLE["thread"] is None or not IDLE["thread"].is_alive():
+        IDLE["stop"] = threading.Event()
+        IDLE["thread"] = threading.Thread(target=idle_preview, args=(IDLE["stop"],), daemon=True)
+        IDLE["thread"].start()
+
+
+def idle_stop():
+    IDLE["stop"].set()
+    if IDLE["thread"] is not None:
+        IDLE["thread"].join(timeout=3)
+    time.sleep(0.5)
+
+
+@app.on_event("startup")
+def _startup():
+    idle_start()
 
 
 @app.get("/cam/{name}")
@@ -212,7 +270,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img src="/cam/front"><figcaption>옆면 카메라 (front)</figcaption></figure>
  <figure><img src="/cam/wrist"><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
- <p class="mut">녹화 시작 뒤 몇 초 지나면 나온다. 녹화가 멈추면 마지막 화면에서 멈춘다.</p></div>
+ <p class="mut">평소에도 나온다. 녹화를 시작하면 몇 초 끊겼다가 녹화 영상으로 이어진다.</p></div>
 <div class="card"><div class="mut" style="margin-bottom:8px">소켓 자리 (바꾸면 다음 에피소드부터 이 자리로 기록)</div><div class="row" id="poss"></div>
  <div class="mut" id="counts" style="margin-top:10px"></div></div>
 <div class="card"><div class="row" style="justify-content:space-between"><div><div class="phase" id="phase">대기</div>
