@@ -18,7 +18,7 @@ from collections import deque
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 ACT = Path(__file__).resolve().parent
@@ -234,6 +234,16 @@ def cam(name: str):
     return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=f")
 
 
+@app.get("/frame/{name}")
+def frame(name: str):
+    """가장 최근 한 장. 화면이 0.1초마다 새로 받아 간다(긴 스트림은 녹화와 미리보기가 바뀔 때 멈춰 버렸다)."""
+    try:
+        data = (CAM / f"{name}.jpg").read_bytes()
+    except OSError:
+        return Response(status_code=404)
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return PAGE
@@ -266,8 +276,8 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
  <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
-<div class="card"><div class="cams"><figure><img src="/cam/front"><figcaption>옆면 카메라 (front)</figcaption></figure>
- <figure><img src="/cam/wrist"><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
+<div class="card"><div class="cams"><figure><img id="img_front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
+ <figure><img id="img_wrist" alt=""><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
  <p class="mut">[카메라 켜기]로 평소에 보고, 녹화를 시작하면 몇 초 끊겼다가 녹화 영상으로 이어진다(녹화 중에는 늘 나온다).</p></div>
 <div class="card"><div class="mut" style="margin-bottom:8px">소켓 자리 (바꾸면 다음 에피소드부터 이 자리로 기록)</div><div class="row" id="poss"></div>
  <div class="mut" id="counts" style="margin-top:10px"></div></div>
@@ -302,4 +312,7 @@ async function tick(){try{st=await (await fetch('/state')).json()}catch(e){retur
  $('camb').textContent=st.running?'카메라: 녹화 중':(st.cam_on?'카메라 끄기':'카메라 켜기');$('camb').classList.toggle('on',st.running||st.cam_on);$('camb').disabled=st.running;$('start').disabled=st.running;$('kind').disabled=st.running;
  $('err').textContent=st.error||'';$('log').textContent=st.log.join('\\n');}
 setInterval(tick,300);tick();
+function pull(name){const im=$('img_'+name);const next=()=>setTimeout(()=>pull(name),100);
+ const n=new Image();n.onload=()=>{im.src=n.src;next()};n.onerror=()=>setTimeout(()=>pull(name),500);n.src='/frame/'+name+'?t='+Date.now()}
+pull('front');pull('wrist');
 </script></body></html>"""
