@@ -286,8 +286,8 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <div class="bar" style="margin:12px 0"><div id="bar" style="width:0"></div></div>
  <div class="row"><button class="next" id="next">다음 (성공, 저장) [→ 또는 스페이스]</button>
  <button class="redo" id="redo">다시 찍기 [←]</button><button class="quit" id="quit">끝내기 [Esc]</button></div>
- <p class="mut">녹화 중: 소켓 앞에서 멈춰 맞추고, 천천히 밀어 넣고, 끝까지 들어가면 1~2초 멈춘 뒤 살짝 빼고 [다음]. 실패했으면 [다시 찍기].<br>
- 정리 시간: 팔을 홈 근처로, 소켓을 표시한 자리로 옮기고 위 '소켓 자리'를 맞게 누른다. 준비되면 [다음]으로 바로 다음 녹화.</p>
+ <p class="mut">녹화 중: 홈에서 출발, 소켓 앞에서 멈춰 맞추고, 천천히 끝까지 꽂는다. <b>꽂힌 채로 2~3초 가만히</b> 있다가 [다음](충전 중 상태로 끝). 실패나 빈 녹화는 [다시 찍기].<br>
+ 정리 시간(녹화 안 됨): 빼서 홈으로 돌려놓고, 소켓을 표시한 자리로 옮기고 위 '소켓 자리'를 맞게 누른다. 준비되면 [다음]으로 바로 다음 녹화.</p>
  <div class="err" id="err"></div></div>
 <div class="card"><div class="mut" style="margin-bottom:6px">로그</div><pre id="log"></pre></div>
 </main><script>
