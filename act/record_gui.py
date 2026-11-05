@@ -11,6 +11,7 @@ import os
 import pty
 import re
 import subprocess
+import sys
 import threading
 import time
 from collections import deque
@@ -172,47 +173,38 @@ def _env_cam(name):
     return m.group(1) if m else ""
 
 
-IDLE = {"stop": threading.Event(), "thread": None}
+IDLE = {"proc": None}
 
 
-def idle_preview(stop):
-    """녹화하지 않을 때 이 화면이 카메라를 직접 열어 미리보기를 쓴다. 녹화를 시작하면 놓아 준다."""
-    import cv2
-
-    CAM.mkdir(parents=True, exist_ok=True)
-    caps = {}
-    for name, var in (("front", "FRONT_CAM"), ("wrist", "WRIST_CAM")):
-        c = cv2.VideoCapture(_env_cam(var), cv2.CAP_V4L2)
-        c.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        c.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        caps[name] = c
-    try:
-        while not stop.is_set():
-            for name, c in caps.items():
-                ok, f = c.read()
-                if ok:
-                    ok, jpg = cv2.imencode(".jpg", f, [cv2.IMWRITE_JPEG_QUALITY, 75])
-                    if ok:
-                        (CAM / f"{name}.tmp").write_bytes(jpg.tobytes())
-                        (CAM / f"{name}.tmp").replace(CAM / f"{name}.jpg")
-            time.sleep(1 / 15)
-    finally:
-        for c in caps.values():
-            c.release()
+def _cams_free(timeout=5.0):
+    """카메라 장치를 아무도 안 쓸 때까지 기다린다(fuser)."""
+    devs = [os.path.realpath(_env_cam(v)) for v in ("FRONT_CAM", "WRIST_CAM")]
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if subprocess.run(["fuser", *devs], capture_output=True).returncode != 0:
+            return True
+        time.sleep(0.2)
+    return False
 
 
 def idle_start():
-    if IDLE["thread"] is None or not IDLE["thread"].is_alive():
-        IDLE["stop"] = threading.Event()
-        IDLE["thread"] = threading.Thread(target=idle_preview, args=(IDLE["stop"],), daemon=True)
-        IDLE["thread"].start()
+    """평소 미리보기를 따로 프로세스로 켠다(끌 때 카메라를 확실히 놓게)."""
+    if IDLE["proc"] is None or IDLE["proc"].poll() is not None:
+        IDLE["proc"] = subprocess.Popen([sys.executable, str(ACT / "cam_preview.py"), _env_cam("FRONT_CAM"), _env_cam("WRIST_CAM")],
+                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def idle_stop():
-    IDLE["stop"].set()
-    if IDLE["thread"] is not None:
-        IDLE["thread"].join(timeout=3)
-    time.sleep(0.5)
+    p = IDLE["proc"]
+    if p is not None and p.poll() is None:
+        p.terminate()
+        try:
+            p.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait()
+    IDLE["proc"] = None
+    _cams_free()
 
 
 @app.post("/camera/{onoff}")
