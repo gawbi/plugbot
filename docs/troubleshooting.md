@@ -64,6 +64,12 @@ RuntimeError: Failed to write 'Torque_Enable' on id_=6 with '0' after 6 tries. [
 - 해결: 미리보기를 따로 프로세스(`act/cam_preview.py`)로 돌리고, 녹화 전에 끝내고 `fuser`로 장치가 비었는지 확인한 뒤 녹화를 시작한다.
 - 확인 명령: `fuser /dev/video4 /dev/video6` (출력이 없으면 비어 있음). 녹화 화면 서버는 하나만: `pgrep -af "uvicorn act.record_gui"`
 
+### 15. 녹화 중 손목 카메라가 잠깐 멈춘 것처럼 보임 [2026-11-05, 확인 중]
+![](troubleshooting/10_wrist_live_during_reset.jpg)
+- 18:01 확인 때는 손목 영상이 계속 바뀌고 있었다(1.5초 간격 두 장의 차이 있음, 정리 시간이라 바닥을 봄). 4개 저장된 상태.
+- 의심: 카메라 두 대가 같은 USB 허브(Genesys, 버스 5)에 있고, 그 허브의 C270이 17:53~17:57 사이 4번 재연결됐다(`usb 5-1.1: reset`).
+- 권장: 카메라를 허브 대신 노트북 본체 포트에 하나씩 직접. 녹화 뒤 `bash act/view.sh static <번호>`로 영상이 끊긴 에피소드가 있는지 본다.
+
 ## 그리퍼 덮개
 
 ### 9. 덮개가 마찰로만 끼워져 빠질 수 있음 → 그리퍼가 무는 구조로 [2026-11-03]
