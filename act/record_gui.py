@@ -126,6 +126,35 @@ def start(req: Start):
     return {"ok": True}
 
 
+@app.post("/delete_last")
+def delete_last():
+    """마지막 저장 에피소드를 지운다(녹화 중이 아닐 때). 원본은 <데이터셋>_backup_<시각>으로 옮겨 둔다."""
+    with LOCK:
+        if S["proc"] is not None:
+            return JSONResponse({"ok": False, "msg": "녹화 중에는 [다시 찍기]를 쓴다"}, 409)
+        kind = S["kind"]
+    root = ds_root(kind)
+    n = saved_count(kind)
+    if n == 0:
+        return JSONResponse({"ok": False, "msg": "지울 에피소드가 없다"}, 400)
+    last = n - 1
+    tmp = root.with_name(root.name + "_tmp")
+    bak = root.with_name(root.name + time.strftime("_backup_%H%M%S"))
+    r = subprocess.run([str(Path(sys.executable).parent / "lerobot-edit-dataset"), "--repo_id", f"local/{root.name}", "--root", str(root),
+                        "--new_repo_id", f"local/{tmp.name}", "--new_root", str(tmp), "--operation.type", "delete_episodes",
+                        "--operation.episode_indices", f"[{last}]"], capture_output=True, text=True)
+    if r.returncode != 0 or not (tmp / "meta" / "info.json").exists():
+        return JSONResponse({"ok": False, "msg": (r.stderr or r.stdout)[-300:]}, 500)
+    pos = load_positions(kind)
+    root.rename(bak)
+    tmp.rename(root)
+    pos.pop(str(last), None)
+    positions_file(kind).write_text(json.dumps(pos, ensure_ascii=False, indent=1))
+    with LOCK:
+        S["log"].append(f"{last}번 에피소드를 지웠다(원본 백업: {bak.name})")
+    return {"ok": True, "deleted": last, "backup": bak.name}
+
+
 @app.post("/key/{k}")
 def key(k: str):
     if k not in ("n", "r", "q"):
@@ -259,7 +288,7 @@ h1{font-size:22px;margin:0 0 12px}.card{background:var(--card);border-radius:14p
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}label{color:var(--mut);font-size:14px}
 select,input{background:#0b121a;color:var(--fg);border:1px solid #2b3a4b;border-radius:8px;padding:8px;font-size:16px}
 button{border:0;border-radius:12px;padding:14px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff}
-.start{background:var(--acc)}.camb{background:#2b3a4b}.camb.on{background:#0e7490}.next{background:var(--ok);flex:2}.redo{background:var(--warn);flex:1}.quit{background:var(--bad);flex:1}
+.start{background:var(--acc)}.camb{background:#2b3a4b}.camb.on{background:#0e7490}.delb{background:#7f1d1d;font-size:15px}.next{background:var(--ok);flex:2}.redo{background:var(--warn);flex:1}.quit{background:var(--bad);flex:1}
 button:disabled{opacity:.35;cursor:default}
 .phase{font-size:34px;font-weight:800}.big{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums}
 .bar{height:12px;background:#0b121a;border-radius:6px;overflow:hidden}.bar>div{height:100%;background:var(--acc);transition:width .2s}
@@ -274,7 +303,8 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button></div>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button>
+ <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img id="img_front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
  <figure><img id="img_wrist" alt=""><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
@@ -294,6 +324,8 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 const $=id=>document.getElementById(id);let st=null,lastPos=null;
 async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):null});return r.json()}
 $('start').onclick=()=>post('/start',{kind:$('kind').value,n:+$('n').value,position:lastPos||'가운데'});
+$('delb').onclick=async()=>{if(!st||st.saved<1)return;if(!confirm(`${st.saved-1}번(마지막) 에피소드를 지울까요? 원본은 백업됩니다.`))return;
+ $('delb').disabled=true;$('delb').textContent='지우는 중...';const r=await post('/delete_last');alert(r.ok?`${r.deleted}번을 지웠습니다.`:'실패: '+r.msg);$('delb').textContent='마지막 에피소드 지우기'};
 $('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
 $('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();post('/key/n')}
@@ -309,7 +341,8 @@ async function tick(){try{st=await (await fetch('/state')).json()}catch(e){retur
  const dur=st.phase==='녹화 중'?(st.kind==='moving'?30:25):20;$('bar').style.width=st.left!==null?(100*(1-st.left/dur))+'%':'0';
  $('counts').textContent='자리별 저장 개수: '+(Object.entries(st.counts).map(([k,v])=>`${k} ${v}`).join(', ')||'아직 없음')+`   (${st.root})`;
  ['next','redo','quit'].forEach(i=>$(i).disabled=!st.running);
- $('camb').textContent=st.running?'카메라: 녹화 중':(st.cam_on?'카메라 끄기':'카메라 켜기');$('camb').classList.toggle('on',st.running||st.cam_on);$('camb').disabled=st.running;$('start').disabled=st.running;$('kind').disabled=st.running;
+ $('camb').textContent=st.running?'카메라: 녹화 중':(st.cam_on?'카메라 끄기':'카메라 켜기');$('camb').classList.toggle('on',st.running||st.cam_on);$('camb').disabled=st.running;
+ if($('delb').textContent!=='지우는 중...')$('delb').disabled=st.running||st.saved<1;$('start').disabled=st.running;$('kind').disabled=st.running;
  $('err').textContent=st.error||'';$('log').textContent=st.log.join('\\n');}
 setInterval(tick,300);tick();
 function pull(name){const im=$('img_'+name);const next=()=>setTimeout(()=>pull(name),100);
