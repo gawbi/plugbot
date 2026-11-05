@@ -1,6 +1,6 @@
 """시범 녹화 화면(브라우저). act/record.sh(lerobot-record)를 가짜 터미널(pty) 안에서 돌리고, 버튼으로 n(다음), r(다시), q(끝)를 보낸다.
 
-- 카메라 두 대를 이 화면에 늘 띄운다. 평소에는 이 화면이 카메라를 직접 열고, 녹화 중에는 act/record_preview.py가 /dev/shm에 쓴 영상. Rerun 창은 끈다.
+- 카메라 두 대를 이 화면에 띄운다. 평소에는 [카메라 켜기]로 이 화면이 카메라를 직접 열고, 녹화 중에는 act/record_preview.py가 /dev/shm에 쓴 영상. Rerun 창은 끈다.
 - 녹화를 시작할 때 고른 '소켓 자리'를 에피소드 번호마다 기록한다: <데이터셋>/plugbot_positions.json.
   나중에 자리별 개수를 맞추고, 녹화하지 않은 자리에서 시험할 때 쓴다.
 실행: bash act/record_gui.sh → http://127.0.0.1:8200
@@ -29,7 +29,7 @@ ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 app = FastAPI()
 S = {"proc": None, "fd": None, "kind": "static", "position": POSITIONS[0], "phase": "대기", "episode": None,
-     "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": ""}
+     "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": "", "cam_on": False}
 LOCK = threading.Lock()
 
 
@@ -97,7 +97,8 @@ def reader(fd, proc):
     with LOCK:
         S["phase"] = "대기" if proc.returncode == 0 else f"끝남(코드 {proc.returncode})"
         S["proc"], S["fd"] = None, None
-    idle_start()  # 녹화가 끝나면 다시 미리보기
+    if S["cam_on"]:
+        idle_start()  # 녹화 전에 카메라를 켜 두었으면 다시 미리보기
 
 
 class Start(BaseModel):
@@ -157,7 +158,7 @@ def state():
         return {"running": S["proc"] is not None, "kind": kind, "phase": S["phase"], "episode": S["episode"],
                 "left": left, "saved": saved, "session": saved - S["added"] if S["proc"] else None, "target": S["target"],
                 "position": S["position"], "counts": counts, "error": S["error"], "log": list(S["log"])[-14:],
-                "positions": POSITIONS, "root": str(ds_root(kind))}
+                "positions": POSITIONS, "root": str(ds_root(kind)), "cam_on": S["cam_on"]}
 
 
 CAM = Path("/dev/shm/plugbot_cam")
@@ -214,9 +215,14 @@ def idle_stop():
     time.sleep(0.5)
 
 
-@app.on_event("startup")
-def _startup():
-    idle_start()
+@app.post("/camera/{onoff}")
+def camera(onoff: str):
+    with LOCK:
+        if S["proc"] is not None:
+            return JSONResponse({"ok": False, "msg": "녹화 중에는 늘 켜져 있다"}, 409)
+        S["cam_on"] = onoff == "on"
+    idle_start() if S["cam_on"] else idle_stop()
+    return {"ok": True}
 
 
 @app.get("/cam/{name}")
@@ -251,7 +257,7 @@ h1{font-size:22px;margin:0 0 12px}.card{background:var(--card);border-radius:14p
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}label{color:var(--mut);font-size:14px}
 select,input{background:#0b121a;color:var(--fg);border:1px solid #2b3a4b;border-radius:8px;padding:8px;font-size:16px}
 button{border:0;border-radius:12px;padding:14px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff}
-.start{background:var(--acc)}.next{background:var(--ok);flex:2}.redo{background:var(--warn);flex:1}.quit{background:var(--bad);flex:1}
+.start{background:var(--acc)}.camb{background:#2b3a4b}.camb.on{background:#0e7490}.next{background:var(--ok);flex:2}.redo{background:var(--warn);flex:1}.quit{background:var(--bad);flex:1}
 button:disabled{opacity:.35;cursor:default}
 .phase{font-size:34px;font-weight:800}.big{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums}
 .bar{height:12px;background:#0b121a;border-radius:6px;overflow:hidden}.bar>div{height:100%;background:var(--acc);transition:width .2s}
@@ -266,11 +272,11 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button></div>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img src="/cam/front"><figcaption>옆면 카메라 (front)</figcaption></figure>
  <figure><img src="/cam/wrist"><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
- <p class="mut">평소에도 나온다. 녹화를 시작하면 몇 초 끊겼다가 녹화 영상으로 이어진다.</p></div>
+ <p class="mut">[카메라 켜기]로 평소에 보고, 녹화를 시작하면 몇 초 끊겼다가 녹화 영상으로 이어진다(녹화 중에는 늘 나온다).</p></div>
 <div class="card"><div class="mut" style="margin-bottom:8px">소켓 자리 (바꾸면 다음 에피소드부터 이 자리로 기록)</div><div class="row" id="poss"></div>
  <div class="mut" id="counts" style="margin-top:10px"></div></div>
 <div class="card"><div class="row" style="justify-content:space-between"><div><div class="phase" id="phase">대기</div>
@@ -286,6 +292,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 const $=id=>document.getElementById(id);let st=null,lastPos=null;
 async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):null});return r.json()}
 $('start').onclick=()=>post('/start',{kind:$('kind').value,n:+$('n').value,position:lastPos||'가운데'});
+$('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
 $('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();post('/key/n')}
  else if(e.key==='ArrowLeft')post('/key/r');else if(e.key==='Escape')$('quit').click()});
@@ -299,7 +306,8 @@ async function tick(){try{st=await (await fetch('/state')).json()}catch(e){retur
  $('left').textContent=st.left!==null?Math.ceil(st.left)+'s':'';
  const dur=st.phase==='녹화 중'?(st.kind==='moving'?30:25):20;$('bar').style.width=st.left!==null?(100*(1-st.left/dur))+'%':'0';
  $('counts').textContent='자리별 저장 개수: '+(Object.entries(st.counts).map(([k,v])=>`${k} ${v}`).join(', ')||'아직 없음')+`   (${st.root})`;
- ['next','redo','quit'].forEach(i=>$(i).disabled=!st.running);$('start').disabled=st.running;$('kind').disabled=st.running;
+ ['next','redo','quit'].forEach(i=>$(i).disabled=!st.running);
+ $('camb').textContent=st.running?'카메라: 녹화 중':(st.cam_on?'카메라 끄기':'카메라 켜기');$('camb').classList.toggle('on',st.running||st.cam_on);$('camb').disabled=st.running;$('start').disabled=st.running;$('kind').disabled=st.running;
  $('err').textContent=st.error||'';$('log').textContent=st.log.join('\\n');}
 setInterval(tick,300);tick();
 </script></body></html>"""
