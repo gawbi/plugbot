@@ -16,7 +16,9 @@ if [ -d "$ROOT" ]; then
   if [ -f "$ROOT/meta/info.json" ]; then EXTRA=(--resume=true --dataset.root="$ROOT"); echo "이어서 녹화: $ROOT (+$N)"
   else echo "$ROOT 에 에피소드가 없는 빈 폴더가 있다(연결 실패로 끝난 녹화). 지우고 다시: rm -r $ROOT"; exit 1; fi
 fi
-exec "$LEROBOT_BIN/lerobot-record" \
+# PREVIEW=1: 녹화 화면용 카메라 미리보기와 그리퍼 하한(act/record_preview.py). 그리퍼 하한은 덮개를 쓰면 꼭 필요하다
+if [ "${PREVIEW:-1}" = 1 ]; then RECORD=("$LEROBOT_BIN/python" "$(dirname "$0")/record_preview.py"); else RECORD=("$LEROBOT_BIN/lerobot-record"); fi
+exec "${RECORD[@]}" \
   --robot.type=so101_follower --robot.port="$F_PORT" --robot.id="$F_ID" --robot.cameras="$CAMS" \
   --teleop.type=so101_leader --teleop.port="$L_PORT" --teleop.id="$L_ID" \
   --dataset.repo_id="$REPO" --dataset.no_stamp=true --dataset.single_task="$TASK" \
