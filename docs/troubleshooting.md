@@ -30,6 +30,12 @@ RuntimeError: Failed to write 'Torque_Enable' on id_=6 with '0' after 6 tries. [
 - 과부하 중에 찍힌 에피소드 1개는 `~/.cache/huggingface/lerobot/local/plug_static_bad_overload_20261105`로 옮겨 쓰지 않는다.
 - 확인: 6번 모터 Status(65) = 0, Torque_Enable(40), Present_Position(56) 원값 2148 = 그리퍼 약 8.
 
+### 14. 녹화 시작 직후 `Failed to write 'Lock' on id_=4 with '1' after 1 tries. [TxRxResult] There is no status packet!` [2026-11-05]
+- 언제: 연결 단계(팔로워 설정 뒤 토크를 다시 켤 때). 녹화 화면에는 "끝남(코드 1)", 저장된 에피소드 0.
+- 바로 뒤에 두 팔 모터 6개씩 세 번 물어보니 모두 응답했다. 한 번 패킷이 빠진 것(간헐)이다. LeRobot은 이 쓰기를 한 번만 시도한다.
+- 해결: `act/record_preview.py`가 토크 켜기, 끄기를 3번까지 다시 시도하게 했다. 그래도 자주 나면 팔로워 4번(손목 굽힘) 모터 앞뒤 3핀 케이블을 끝까지 다시 꽂는다.
+- 참고: 같은 시각 커널 기록의 `usb 5-1.1: reset`은 카메라 허브의 C270이다(로봇 보드는 본체 포트, 버스 3과 7).
+
 ## 카메라
 
 ### 5. 옆면 카메라에 은색 벽 반사, 소켓이 화면 밖 [2026-11-03]

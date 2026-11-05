@@ -14,6 +14,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from lerobot.motors.feetech.feetech import FeetechMotorsBus
 from lerobot.robots.so_follower import SOFollower
 from lerobot.scripts import lerobot_record
 from lerobot.teleoperators.so_leader import SOLeader
@@ -57,6 +58,11 @@ def get_action(self):
 def send_action(self, action):
     return _send(self, _clamp(action))
 
+
+# 3. 토크 켜기, 끄기 쓰기를 한 번만 시도해서, 패킷 하나가 빠지면 연결 단계에서 죽었다(4번 모터 'Lock', 2026-11-05). 3번까지 다시 시도
+_en, _dis = FeetechMotorsBus.enable_torque, FeetechMotorsBus.disable_torque
+FeetechMotorsBus.enable_torque = lambda self, motors=None, num_retry=0: _en(self, motors, max(num_retry, 3))
+FeetechMotorsBus.disable_torque = lambda self, motors=None, num_retry=0: _dis(self, motors, max(num_retry, 3))
 
 SOFollower.get_observation = get_observation
 SOLeader.get_action = get_action
