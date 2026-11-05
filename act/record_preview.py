@@ -1,4 +1,4 @@
-"""lerobot-record를 그대로 돌리되 두 가지를 덧붙인다(act/record.sh가 PREVIEW=1일 때 이것을 부른다).
+"""lerobot-record(또는 --plugbot-entry=rollout이면 lerobot-rollout)를 그대로 돌리되 덧붙인다(act/record.sh PREVIEW=1, 녹화 화면의 로봇 실행).
 
 1. 카메라 미리보기: 팔로워가 읽은 카메라 영상을 약 15 fps로 /dev/shm/plugbot_cam/<이름>.jpg에 쓴다.
    녹화 화면(act/record_gui.py)이 이것을 보여 준다(카메라는 녹화 프로그램이 쓰고 있어 다른 프로그램이 직접 열 수 없다).
@@ -69,6 +69,18 @@ SOLeader.get_action = get_action
 SOFollower.send_action = send_action
 
 if __name__ == "__main__":
-    sys.argv = ["lerobot-record", *sys.argv[1:]]
-    print(f"[plugbot] 카메라 미리보기 {SHM}, 그리퍼 하한 {GRIP_MIN}", flush=True)
-    lerobot_record.main()
+    # --plugbot-entry=rollout 이면 학습한 정책 실행(lerobot-rollout)에 같은 덧붙임(미리보기, 그리퍼 하한, 토크 재시도)을 쓴다
+    entry = "record"
+    args = [a for a in sys.argv[1:] if not a.startswith("--plugbot-entry=")]
+    for a in sys.argv[1:]:
+        if a.startswith("--plugbot-entry="):
+            entry = a.split("=", 1)[1]
+    print(f"[plugbot] {entry}: 카메라 미리보기 {SHM}, 그리퍼 하한 {GRIP_MIN}", flush=True)
+    if entry == "rollout":
+        from lerobot.scripts import lerobot_rollout
+
+        sys.argv = ["lerobot-rollout", *args]
+        lerobot_rollout.main()
+    else:
+        sys.argv = ["lerobot-record", *args]
+        lerobot_record.main()

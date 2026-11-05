@@ -30,7 +30,7 @@ ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 app = FastAPI()
 S = {"proc": None, "fd": None, "kind": "static", "position": POSITIONS[0], "phase": "대기", "episode": None,
-     "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": "", "cam_on": False}
+     "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": "", "cam_on": False, "rollout": None}
 LOCK = threading.Lock()
 
 
@@ -90,6 +90,8 @@ def reader(fd, proc):
                     S["phase"], S["phase_t0"] = "정리 시간(소켓 옮기기)", time.time()
                 elif "Re-record episode" in line:
                     S["phase"] = "다시 찍기"
+                elif S.get("rollout") and S["phase"] == "로봇 실행 준비" and re.search(r"(?i)rollout|running|start", line):
+                    S["phase"], S["phase_t0"] = "로봇 실행 중", time.time()
                 elif "Stop recording" in line:
                     S["phase"] = "저장 중"
                 elif "Error" in line or "Traceback" in line:
@@ -98,6 +100,7 @@ def reader(fd, proc):
     with LOCK:
         S["phase"] = "대기" if proc.returncode == 0 else f"끝남(코드 {proc.returncode})"
         S["proc"], S["fd"] = None, None
+        S["rollout"] = None
     if S["cam_on"]:
         idle_start()  # 녹화 전에 카메라를 켜 두었으면 다시 미리보기
 
@@ -155,6 +158,66 @@ def delete_last():
     return {"ok": True, "deleted": last, "backup": bak.name}
 
 
+RUNS = Path.home() / "act_runs"
+
+
+@app.get("/ckpts")
+def ckpts():
+    """학습 결과 체크포인트 목록(최근 것 먼저)."""
+    out = []
+    for run in sorted(RUNS.glob("*/checkpoints"), key=lambda p: p.stat().st_mtime, reverse=True):
+        for c in sorted(run.glob("[0-9]*"), reverse=True):
+            if (c / "pretrained_model" / "config.json").exists():
+                out.append(f"{run.parent.name}/{c.name}")
+    return out
+
+
+class Roll(BaseModel):
+    ckpt: str
+    duration: float = 20.0
+
+
+@app.post("/rollout/start")
+def rollout_start(req: Roll):
+    path = RUNS / req.ckpt.split("/")[0] / "checkpoints" / req.ckpt.split("/")[1] / "pretrained_model"
+    if not path.exists():
+        return JSONResponse({"ok": False, "msg": f"{path} 없음"}, 404)
+    with LOCK:
+        if S["proc"] is not None:
+            return JSONResponse({"ok": False, "msg": "이미 실행 중"}, 409)
+    idle_stop()
+    cams = (f"{{ front: {{type: opencv, index_or_path: {_env_cam('FRONT_CAM')}, width: 640, height: 480, fps: 30}}, "
+            f"wrist: {{type: opencv, index_or_path: {_env_cam('WRIST_CAM')}, width: 640, height: 480, fps: 30}}}}")
+    env_txt = (ACT / "env.sh").read_text()
+
+    def env_default(name):
+        m = re.search(name + r'="\$\{' + name + r':-([^}]*)\}"', env_txt)
+        return os.environ.get(name) or (m.group(1) if m else "")
+    cmd = [sys.executable, str(ACT / "record_preview.py"), "--plugbot-entry=rollout", "--strategy.type=base",
+           f"--policy.path={path}", "--robot.type=so101_follower", f"--robot.port={env_default('F_PORT')}",
+           f"--robot.id={env_default('F_ID')}", f"--robot.cameras={cams}", "--task=Insert the plug into the socket",
+           f"--duration={req.duration}", "--device=cuda", "--display_data=false"]
+    master, slave = pty.openpty()
+    env = dict(os.environ, XDG_SESSION_TYPE="wayland", PYTHONUNBUFFERED="1")
+    proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, cwd=ACT.parent, env=env, start_new_session=True)
+    os.close(slave)
+    with LOCK:
+        S.update(proc=proc, fd=master, phase="로봇 실행 준비", episode=None, phase_t0=time.time(), target=0,
+                 added=saved_count(S["kind"]), error="", rollout=req.duration)
+        S["log"].clear()
+    threading.Thread(target=reader, args=(master, proc), daemon=True).start()
+    return {"ok": True}
+
+
+@app.post("/rollout/stop")
+def rollout_stop():
+    with LOCK:
+        p = S["proc"]
+    if p is not None:
+        p.send_signal(2)  # Ctrl+C: 정상 종료
+    return {"ok": True}
+
+
 @app.post("/key/{k}")
 def key(k: str):
     if k not in ("n", "r", "q"):
@@ -177,7 +240,8 @@ def set_position(req: Start):
 def state():
     with LOCK:
         kind = S["kind"]
-        dur = SEC.get(kind, 25) if S["phase"] == "녹화 중" else RESET_S if S["phase"].startswith("정리") else None
+        dur = (SEC.get(kind, 25) if S["phase"] == "녹화 중" else RESET_S if S["phase"].startswith("정리")
+               else S["rollout"] if S["phase"] == "로봇 실행 중" else None)
         left = max(0.0, dur - (time.time() - S["phase_t0"])) if dur else None
         pos = load_positions(kind)
         saved = saved_count(kind)
@@ -188,7 +252,7 @@ def state():
         return {"running": S["proc"] is not None, "kind": kind, "phase": S["phase"], "episode": S["episode"],
                 "left": left, "saved": saved, "session": saved - S["added"] if S["proc"] else None, "target": S["target"],
                 "position": S["position"], "counts": counts, "error": S["error"], "log": list(S["log"])[-14:],
-                "positions": POSITIONS, "root": str(ds_root(kind)), "cam_on": S["cam_on"]}
+                "positions": POSITIONS, "root": str(ds_root(kind)), "cam_on": S["cam_on"], "rollout": S["rollout"]}
 
 
 CAM = Path("/dev/shm/plugbot_cam")
@@ -319,6 +383,12 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <p class="mut">녹화 중: 홈에서 출발, 소켓 앞에서 멈춰 맞추고, 천천히 끝까지 꽂는다. <b>꽂힌 채로 2~3초 가만히</b> 있다가 [다음](충전 중 상태로 끝). 실패나 빈 녹화는 [다시 찍기].<br>
  정리 시간(녹화 안 됨): 빼서 홈으로 돌려놓고, 소켓을 표시한 자리로 옮기고 위 '소켓 자리'를 맞게 누른다. 준비되면 [다음]으로 바로 다음 녹화.</p>
  <div class="err" id="err"></div></div>
+<div class="card"><div class="mut" style="margin-bottom:8px">로봇 혼자 꽂기 (학습한 정책 시험, 녹화 안 함)</div>
+ <div class="row"><label>체크포인트 <select id="ckpt"></select></label>
+ <label>시간(초) <input id="rdur" type="number" value="20" min="5" max="120" style="width:70px"></label>
+ <button class="start" id="rstart">로봇 실행</button><button class="quit" id="rstop">멈추기</button></div>
+ <p class="mut">실행 전: 리더 팔은 그대로 두고(이때는 리더를 안 씀), 팔로워를 홈 근처에, 소켓을 표시한 자리에. 사람 손은 부스 밖.
+ 비상 시 [멈추기] 또는 팔로워 12 V 전원. 끝나면 꽂힌 채로 멈춘다(빼기는 손으로 받치고 다음 녹화나 원격조종 때).</p></div>
 <div class="card"><div class="mut" style="margin-bottom:6px">로그</div><pre id="log"></pre></div>
 </main><script>
 const $=id=>document.getElementById(id);let st=null,lastPos=null;
@@ -326,6 +396,12 @@ async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-
 $('start').onclick=()=>post('/start',{kind:$('kind').value,n:+$('n').value,position:lastPos||'가운데'});
 $('delb').onclick=async()=>{if(!st||st.saved<1)return;if(!confirm(`${st.saved-1}번(마지막) 에피소드를 지울까요? 원본은 백업됩니다.`))return;
  $('delb').disabled=true;$('delb').textContent='지우는 중...';const r=await post('/delete_last');alert(r.ok?`${r.deleted}번을 지웠습니다.`:'실패: '+r.msg);$('delb').textContent='마지막 에피소드 지우기'};
+async function loadCkpts(){const l=await (await fetch('/ckpts')).json();const sel=$('ckpt');const cur=sel.value;sel.innerHTML='';
+ l.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o)});if(cur&&l.includes(cur))sel.value=cur}
+loadCkpts();setInterval(loadCkpts,30000);
+$('rstart').onclick=()=>{if(!$('ckpt').value){alert('체크포인트가 아직 없습니다');return}
+ if(confirm(`${$('ckpt').value} 로 ${$('rdur').value}초 동안 로봇을 움직입니다. 손을 부스 밖으로!`))post('/rollout/start',{ckpt:$('ckpt').value,duration:+$('rdur').value})};
+$('rstop').onclick=()=>post('/rollout/stop');
 $('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
 $('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();post('/key/n')}
@@ -335,12 +411,13 @@ function renderPos(list,cur){const b=$('poss');if(b.childElementCount!==list.len
  [...b.children].forEach(c=>c.classList.toggle('on',c.textContent===cur))}
 async function tick(){try{st=await (await fetch('/state')).json()}catch(e){return}
  if(!lastPos)lastPos=st.position;renderPos(st.positions,st.running?st.position:lastPos);
- $('phase').textContent=st.phase;$('phase').style.color=st.phase==='녹화 중'?'#22c55e':st.phase.startsWith('정리')?'#f59e0b':'';
+ $('phase').textContent=st.phase;$('phase').style.color=st.phase==='녹화 중'||st.phase==='로봇 실행 중'?'#22c55e':st.phase.startsWith('정리')?'#f59e0b':'';
  $('sub').textContent=(st.episode!==null?`에피소드 ${st.episode}  `:'')+`저장된 에피소드 ${st.saved}`+(st.running?`  (이번 ${st.session}/${st.target})`:'')+`  자리: ${st.running?st.position:lastPos}`;
  $('left').textContent=st.left!==null?Math.ceil(st.left)+'s':'';
- const dur=st.phase==='녹화 중'?(st.kind==='moving'?30:25):20;$('bar').style.width=st.left!==null?(100*(1-st.left/dur))+'%':'0';
+ const dur=st.phase==='로봇 실행 중'?st.rollout:st.phase==='녹화 중'?(st.kind==='moving'?30:25):20;$('bar').style.width=st.left!==null?(100*(1-st.left/dur))+'%':'0';
  $('counts').textContent='자리별 저장 개수: '+(Object.entries(st.counts).map(([k,v])=>`${k} ${v}`).join(', ')||'아직 없음')+`   (${st.root})`;
- ['next','redo','quit'].forEach(i=>$(i).disabled=!st.running);
+ ['next','redo','quit'].forEach(i=>$(i).disabled=!st.running||!!st.rollout);
+ $('rstart').disabled=st.running;$('rstop').disabled=!(st.running&&st.rollout);
  $('camb').textContent=st.running?'카메라: 녹화 중':(st.cam_on?'카메라 끄기':'카메라 켜기');$('camb').classList.toggle('on',st.running||st.cam_on);$('camb').disabled=st.running;
  if($('delb').textContent!=='지우는 중...')$('delb').disabled=st.running||st.saved<1;$('start').disabled=st.running;$('kind').disabled=st.running;
  $('err').textContent=st.error||'';$('log').textContent=st.log.join('\\n');}
