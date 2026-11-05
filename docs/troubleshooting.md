@@ -77,6 +77,12 @@ RuntimeError: Failed to write 'Torque_Enable' on id_=6 with '0' after 6 tries. [
   서버를 다시 켤 때는 예전 것을 확실히 끈다: `ss -ltnp | grep 8200`으로 pid 확인 후 `kill -9 <pid>`.
 - 주의: `pkill -f "cam_preview"`처럼 명령 문자열에 같은 글자가 있으면 셸 자신이 죽는다(exit 144). `grep "[c]am_preview"`로 찾는다.
 
+### 17. 녹화 중에 녹화 화면 서버를 다시 켜서 녹화가 주인 없이 남음 [2026-11-05]
+- 서버를 바꾸려고 끈 순간 사용자가 막 녹화를 시작한 상태였다. 녹화 프로그램은 따로 떠 있어 계속 돌았지만 버튼(n, r, q)을 받을 길이 끊겼다.
+- 처리: 그 프로세스에 Ctrl+C(SIGINT)를 보내 정상 종료(데이터셋 마무리). 진행 중이던 에피소드는 저장되지 않았고 기존 36개는 그대로(다시 열어 확인).
+- 규칙: 서버를 다시 켜기 전에 `curl -s 127.0.0.1:8200/state`의 `"running": false`를 확인하고, true면 다시 켜지 않는다.
+  남은 녹화 프로세스 찾기: `ps -eo pid,cmd | grep "[r]ecord_preview"` → `kill -INT <pid>`
+
 ## 그리퍼 덮개
 
 ### 9. 덮개가 마찰로만 끼워져 빠질 수 있음 → 그리퍼가 무는 구조로 [2026-11-03]
