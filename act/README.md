@@ -69,7 +69,7 @@ bash act/rollout.sh act_v1 eval static
 ```
 
 - 맥에서 Hub에 올린 데이터를 쓰려면 `~/lerobot_env/bin/hf auth login` 뒤 `HF_USER=<아이디> bash act/train.sh plug_static full`.
-- 나쁜 에피소드 삭제와 합치기는 `ACT_PLAN.md` 3.7절(`lerobot-edit-dataset`).
+- 나쁜 에피소드 삭제: 녹화를 끝낸 뒤 `lerobot-edit-dataset --repo_id local/plug_static --root ~/.cache/huggingface/lerobot/local/plug_static --new_repo_id local/plug_static_tmp --new_root ~/.cache/huggingface/lerobot/local/plug_static_tmp --operation.type delete_episodes --operation.episode_indices "[9]"` → 원본 백업 후 tmp를 원래 이름으로. 뒤 번호가 당겨지므로 `plugbot_positions.json`도 고친다(2026-11-05 9번 삭제에 씀). 합치기는 `ACT_PLAN.md` 3.7절
 - 시뮬레이션 시범은 실물 50회로 먼저 학습한 뒤 섞을지 정한다(`ACT_PLAN.md` 2절).
   MuJoCo: `.venv/bin/python make_sim_dataset.py --episodes 50 --randomize`, Isaac: `isaac/run_plugbot_isaac.py --hs 0.06 --dataset 50 --headless`.
 
