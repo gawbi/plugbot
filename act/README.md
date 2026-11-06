@@ -58,6 +58,9 @@ bash act/teleop.sh
 #    끝에 나오는 Cadence가 30 Hz 가까이인지 확인(느리면 SHOW=false). 녹화 뒤 bash act/view.sh static 0 으로 다시 본다
 bash act/record.sh static 25
 bash act/record.sh moving 30
+#    흔들림 조건(2026-11-06 결정): 소켓 가운데 한 자리, 진폭 하나로 통일 = deck_shaker.py를 켰을 때 그대로
+#    (정현파 s, 진폭 12 mm, 주기 2.5 s, CENTER 3285). 흔들기: source ~/shaker_env/bin/activate; python act/deck_shaker.py
+#    통신만 확인: ~/shaker_env/bin/python act/shaker_ping.py. 흔들림 시범 50~60개, 정지 데이터와 합쳐 학습
 
 # 4. 학습: 시험 10분 → 본 학습 밤새
 bash act/train.sh plug_static smoke
