@@ -258,7 +258,8 @@ def state():
         return {"running": S["proc"] is not None, "kind": kind, "phase": S["phase"], "episode": S["episode"],
                 "left": left, "saved": saved, "session": saved - S["added"] if S["proc"] else None, "target": S["target"],
                 "position": S["position"], "counts": counts, "error": S["error"], "log": list(S["log"])[-14:],
-                "positions": POSITIONS, "root": str(ds_root(kind)), "cam_on": S["cam_on"], "rollout": S["rollout"]}
+                "positions": POSITIONS, "root": str(ds_root(kind)), "cam_on": S["cam_on"], "rollout": S["rollout"],
+                "shaker": shaker_running(), "shaker_log": list(SHAKER["log"])[-3:]}
 
 
 CAM = Path("/dev/shm/plugbot_cam")
@@ -327,6 +328,75 @@ def _kill_stray_previews():
 
 
 _kill_stray_previews()  # 서버가 켜질 때도
+
+
+# 흔들림 갑판(act/deck_shaker.py, ~/shaker_env). [흔들기] = 프로그램을 켠다(켜자마자 정현파 12 mm, 2.5 s, t=0에서 가운데라 튀지 않음).
+# [멈추기] = q를 보내 가운데로 되돌리고 토크를 끄고 끝낸다. 녹화와 따로 돌아서 에피소드마다 시작 위상이 달라진다
+SHAKER = {"proc": None, "log": deque(maxlen=20)}
+SHAKER_PY = Path.home() / "shaker_env" / "bin" / "python"
+
+
+def _stop_stray_shakers():
+    """이전 서버가 남긴 deck_shaker.py에 SIGINT(가운데로 되돌리고 토크 끔)."""
+    import signal
+    for d in Path("/proc").iterdir():
+        if not d.name.isdigit():
+            continue
+        try:
+            cmd = (d / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if any(c.endswith(b"act/deck_shaker.py") for c in cmd):
+            try:
+                os.kill(int(d.name), signal.SIGINT)
+            except OSError:
+                pass
+
+
+_stop_stray_shakers()
+
+
+def _shaker_reader(proc):
+    for line in proc.stdout:
+        SHAKER["log"].append(line.rstrip())
+
+
+def shaker_running():
+    return SHAKER["proc"] is not None and SHAKER["proc"].poll() is None
+
+
+@app.post("/shaker/start")
+def shaker_start():
+    if shaker_running():
+        return {"ok": True}
+    SHAKER["log"].clear()
+    proc = subprocess.Popen([str(SHAKER_PY), "-u", str(ACT / "deck_shaker.py")], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    SHAKER["proc"] = proc
+    threading.Thread(target=_shaker_reader, args=(proc,), daemon=True).start()
+    time.sleep(1.0)
+    if proc.poll() is not None:
+        return JSONResponse({"ok": False, "msg": " / ".join(SHAKER["log"]) or "흔들기 시작 실패"}, 500)
+    return {"ok": True}
+
+
+@app.post("/shaker/stop")
+def shaker_stop():
+    proc = SHAKER["proc"]
+    if proc is None or proc.poll() is not None:
+        return {"ok": True}
+    try:
+        proc.stdin.write("q\n")
+        proc.stdin.flush()
+        proc.wait(timeout=3)
+    except Exception:
+        import signal
+        proc.send_signal(signal.SIGINT)
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    return {"ok": True}
 
 
 @app.post("/camera/{onoff}")
@@ -466,7 +536,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <button onclick="camRec()">카메라 위치 기록</button> <span id="drift" class="mut"></span>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <button class="camb" id="shk">갑판 흔들기</button> <button class="camb" id="shkstop">갑판 멈추기</button> <span id="shkst" class="mut"></span> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <button onclick="camRec()">카메라 위치 기록</button> <span id="drift" class="mut"></span>
  <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img id="img_front" alt=""><img class="ref" src="/ref/front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
@@ -503,6 +573,8 @@ $('rstart').onclick=()=>{if(!$('ckpt').value){alert('체크포인트가 아직 �
  if(confirm(`${$('ckpt').value} 로 ${$('rdur').value}초 동안 로봇을 움직입니다. 손을 부스 밖으로!`))post('/rollout/start',{ckpt:$('ckpt').value,duration:+$('rdur').value,replan:+$('replan').value})};
 $('rstop').onclick=()=>post('/rollout/stop');
 $('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
+$('shk').onclick=async()=>{if(!confirm('갑판을 흔듭니다(정현파 12 mm, 2.5초). 갑판 주변에서 손을 빼세요'))return;const r=await post('/shaker/start');if(!r.ok)alert(r.msg)};
+$('shkstop').onclick=()=>post('/shaker/stop');
 $('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();post('/key/n')}
  else if(e.key==='ArrowLeft')post('/key/r');else if(e.key==='Escape')$('quit').click()});
@@ -510,6 +582,8 @@ function renderPos(list,cur){const b=$('poss');if(b.childElementCount!==list.len
  d.onclick=()=>{lastPos=p;post('/position',{position:p});[...b.children].forEach(c=>c.classList.toggle('on',c.textContent===p))};b.appendChild(d)})}
  [...b.children].forEach(c=>c.classList.toggle('on',c.textContent===cur))}
 async function tick(){try{st=await (await fetch('/state')).json()}catch(e){return}
+ $('shk').classList.toggle('on',!!st.shaker);$('shk').textContent=st.shaker?'갑판 흔드는 중':'갑판 흔들기';$('shk').disabled=!!st.shaker;$('shkstop').disabled=!st.shaker;
+ $('shkst').textContent=(!st.shaker&&st.shaker_log&&st.shaker_log.length)?st.shaker_log[st.shaker_log.length-1]:'';
  if(!lastPos)lastPos=st.position;renderPos(st.positions,st.running?st.position:lastPos);
  $('phase').textContent=st.phase;$('phase').style.color=st.phase==='녹화 중'||st.phase==='로봇 실행 중'?'#22c55e':st.phase.startsWith('정리')?'#f59e0b':'';
  $('sub').textContent=(st.episode!==null?`에피소드 ${st.episode}  `:'')+`저장된 에피소드 ${st.saved}`+(st.running?`  (이번 ${st.session}/${st.target})`:'')+`  자리: ${st.running?st.position:lastPos}`;
