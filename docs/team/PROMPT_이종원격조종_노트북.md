@@ -11,7 +11,8 @@
 전기 페리(팬스타 무늬) 현측 소켓에 플러그를 꽂는 장면**을 띄운다. 본선 질의응답 때 심사위원이 리더 팔로 직접 해 보는 체험용이다.
 코드는 이미 저장소에 있다. 너의 일은 **이 노트북에 환경을 만들고, 돌려 보고, 막히면 고치는 것**이다.
 
-단계마다 한두 줄로 사용자에게 알리고, 같은 오류로 세 번 막히면 멈추고 정리해서 묻는다.
+**사용자에게 하나하나 묻지 말고 끝까지 알아서 진행한다.** 설치, 수정, 시험, 실패하면 원인 찾아 고치기, 대체안 선택까지 네가 판단한다.
+진행 상황은 단계마다 한두 줄로 알리기만 한다. 같은 오류로 다섯 번 막히거나 사용자 손이 꼭 필요할 때(아래 '사용자에게 넘길 것')만 멈춘다.
 
 ### 지킬 규칙 (팀 공통)
 - 사용자에게는 한국어로, 짧게.
@@ -19,7 +20,8 @@
 - 커밋 작성자는 김광빈만: `git config user.name "김광빈"`, `git config user.email "a30115964@gmail.com"`. 커밋 메시지에 Claude나 Co-Authored-By 표시를 넣지 않는다.
 - mp4, USD 변환 결과, data/는 커밋하지 않는다. **git push는 사용자에게 물어본 뒤** 한다. 브랜치는 `teleop-laptop2`를 새로 만들어 쓴다(main에 직접 커밋하지 않는다).
 - 결과를 부풀리지 않는다. 안 된 것은 안 됐다고 쓴다.
-- sudo가 필요한 일(스왑 늘리기, dialout 그룹, 드라이버)은 이유를 먼저 말하고 허락을 받는다. `chmod 777`로 권한을 우회하지 않는다.
+- sudo가 필요한 일(dialout 그룹, 드라이버, 패키지 설치)은 비밀번호가 필요하면 실행할 명령을 그대로 보여 주고 사용자가 치게 한다. `chmod 777`로 권한을 우회하지 않는다.
+- 사용자에게 넘길 것: sudo 비밀번호, GitHub 로그인(비공개 저장소), 리더 팔 전원과 USB 꽂기, git push 여부. 이것 말고는 묻지 않는다.
 - 선상 인터넷은 하루 2.5 GB다. **큰 다운로드(Isaac Sim 약 10 GB 이상, 자산)는 반드시 육지에서(11/7까지)** 끝낸다.
 
 ## 1. 저장소 받기
@@ -41,20 +43,16 @@ cd plugbot && git checkout -b teleop-laptop2
 uname -a; lsb_release -a 2>/dev/null; nvidia-smi; free -h; swapon --show; df -h ~; python3 --version
 ```
 - **GPU**: NVIDIA RTX 계열이어야 Isaac Sim이 돈다. 드라이버 버전 확인(우분투 26.04면 580-open, CLAUDE.md 참고). GPU가 없거나 RTX가 아니면 7절 대체안으로 간다.
-- **램 16 GB**: Isaac Sim 5.1 권장은 32 GB다. 3절의 메모리 대책을 차례로 쓴다.
+- **램 16 GB**: Isaac Sim 5.1 권장은 32 GB다. 스왑 파일은 사용자가 이미 만들어 두었다(`swapon --show`로 확인만 한다). 3절의 메모리 대책을 차례로 쓴다.
 - 디스크 여유 50 GB 이상(Isaac pip 설치와 캐시).
 - Windows 노트북이면 사용자에게 알리고, Isaac Sim 5.1 Windows pip 설치로 같은 순서를 따르되 경로와 포트 이름(COM3 등)을 바꾼다.
 
 ## 3. 램 16 GB 대책 (순서대로, 될 때까지만)
 
 1. **다른 프로그램 끄기**: 크롬, VS Code의 큰 확장, 다른 Claude 창. `free -h`로 Isaac 실행 전 '사용 가능'이 10 GB 이상인지 본다.
-2. **스왑 늘리기(sudo, 허락받고)**: 16~32 GB 스왑 파일. Isaac은 처음 셰이더와 자산을 올릴 때 메모리가 튄다. 스왑이 있으면 느려질 뿐 죽지 않는다.
-   ```bash
-   sudo fallocate -l 24G /swapfile2 && sudo chmod 600 /swapfile2 && sudo mkswap /swapfile2 && sudo swapon /swapfile2
-   ```
-3. **가벼운 실행**: `run_scaleup.py --lowmem`(창 960x540, 안티에일리어싱 끔, RaytracedLighting). `--fps 20`으로 낮춘다.
-4. **자산을 로컬로**: `isaac/scaleup/fetch_assets.py`로 UR10e와 하늘 HDR을 받아 두면 실행 때 자산 서버를 오가지 않는다(선상 인터넷도 아낀다).
-5. 그래도 메모리 부족으로 죽으면(`Killed`, `std::bad_alloc`, 창이 멈춤) 7절 대체안.
+2. **가벼운 실행**: `run_scaleup.py --lowmem`(창 960x540, 안티에일리어싱 끔, RaytracedLighting). `--fps 20`으로 낮춘다.
+3. **자산을 로컬로**: `isaac/scaleup/fetch_assets.py`로 UR10e와 하늘 HDR을 받아 두면 실행 때 자산 서버를 오가지 않는다(선상 인터넷도 아낀다).
+4. 그래도 메모리 부족으로 죽으면(`Killed`, `std::bad_alloc`, 창이 멈춤) 7절 대체안.
 - 실행 중 `watch -n 2 free -h`를 옆 터미널에 띄워 두고, 최대 사용량을 사용자에게 알려 준다.
 
 ## 4. Isaac Sim 5.1 설치 (pip, CLAUDE.md와 같은 방식)
@@ -80,8 +78,8 @@ OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 ~/isaacsim_env/bin/python isaac/scal
 ## 6. 리더 팔 연결 (실물)
 
 1. 리더 팔 5 V 전원과 USB를 꽂는다. `ls /dev/serial/by-id/`, `ls /dev/ttyACM* /dev/ttyUSB*`로 포트를 찾는다.
-2. 권한: `groups`에 dialout이 없으면 이유를 설명하고 허락받아 `sudo usermod -aG dialout $USER` → 다시 로그인 필요하다고 알린다.
-   CH340 계열이 안 보이면 `dmesg | tail`로 brltty 점유 여부를 확인하고, 지우거나 끄기 전에 허락받는다.
+2. 권한: `groups`에 dialout이 없으면 `sudo usermod -aG dialout $USER`를 사용자에게 치게 하고, 다시 로그인이 필요하다고 알린다.
+   CH340 계열이 안 보이면 `dmesg | tail`로 brltty 점유 여부를 확인하고, 점유 중이면 `sudo systemctl stop brltty`(또는 제거) 명령을 사용자에게 보여 준다.
 3. Isaac 없이 먼저: `~/isaacsim_env/bin/python isaac/scaleup/leader_source.py /dev/ttyACM0`
    - 리더 팔을 접은 홈 자세에서 '소켓까지' 약 250~300 mm, 플러그를 꽂는 자세(팔을 앞으로 뻗어 손목을 내림)로 가면 깊이가 + 쪽으로 커지면 정상.
    - 리더 팔은 GPU 노트북에서 보정한 그 팔이어야 한다(`calib/plug_leader.json`). 다른 리더 팔이면 LeRobot으로 다시 보정하고 그 JSON으로 바꾼다.
@@ -99,7 +97,7 @@ UR10e 모델은 MuJoCo Menagerie(`universal_robots_ur10e`)를 받아 소켓 판 
 
 - 사용자에게: 된 것, 안 된 것, 최대 메모리 사용량, 체험 순서(명령 한 줄)를 짧게 정리.
 - `isaac/scaleup/README.md`에 '실시간 이종 원격조종' 절을 추가(명령, 메모리 대책, 확인한 것과 안 한 것). 브랜치 `teleop-laptop2`에 커밋.
-- push는 사용자에게 묻는다.
+- push는 사용자에게 묻는다(팀 규칙). 그 밖의 결정은 네가 한다.
 
 ## 참고: 이 장면이 무엇인지 (발표에서 정확히 말하기)
 - 리더 팔 실시간 입력 → 그리퍼 끝의 소켓 기준 위치(모형 크기) → 커넥터 5배로 키워 UR10e 목표 → IK. 소켓 위치는 시뮬레이션 참값, 충돌 계산 없는 운동학 시각화.
