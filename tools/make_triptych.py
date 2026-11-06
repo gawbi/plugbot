@@ -22,7 +22,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--episode", type=int, default=54)
 ap.add_argument("--dataset", default="plug_static")
 ap.add_argument("--isaac", default="", help="run_scaleup.py --frames-dir 폴더. 비우면 가운데 칸은 '렌더 전' 표시")
-ap.add_argument("--isaac-cam", default="wide")
+ap.add_argument("--isaac-cam", default="close")  # 근접 시점이 실물 옆면 카메라와 구도가 같다
 ap.add_argument("--acr", default=str(ROOT / "data/ref_video/hyundai_acr_official_20230320.mp4"))
 ap.add_argument("--acr-start", type=float, default=16.0, help="ACR 영상에서 로봇이 다가와 꽂기까지 시작 시각(s)")
 ap.add_argument("--acr-len", type=float, default=15.0)
