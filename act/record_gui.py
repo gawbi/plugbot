@@ -333,6 +333,15 @@ def cam(name: str):
     return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=f")
 
 
+@app.get("/ref/{name}")
+def ref(name: str):
+    # 학습 데이터(plug_static 20번 에피소드 첫 장면)의 카메라 화면. 카메라가 밀렸을 때 겹쳐 보며 되돌린다(2026-11-06 옆면 52 px 밀림)
+    f = ACT.parent / "outputs" / "camera_ref" / f"dataset_{name}.jpg"
+    if name not in ("front", "wrist") or not f.exists():
+        return Response(status_code=404)
+    return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/frame/{name}")
 def frame(name: str):
     """가장 최근 한 장. 화면이 0.1초마다 새로 받아 간다(긴 스트림은 녹화와 미리보기가 바뀔 때 멈춰 버렸다)."""
@@ -365,7 +374,7 @@ button:disabled{opacity:.35;cursor:default}
 .pos{padding:10px 14px;border-radius:10px;background:#0b121a;border:2px solid #2b3a4b;cursor:pointer;font-size:16px}
 .pos.on{border-color:var(--acc);background:#241d4d}
 pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(--mut);white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
-.err{color:var(--bad)}.cams{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cams figure{margin:0}
+.err{color:var(--bad)}.cams{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cams figure{margin:0;position:relative}.cams img.ref{position:absolute;left:0;top:0;opacity:.5;pointer-events:none;display:none}.refon .cams img.ref{display:block}
 .cams img{width:100%;aspect-ratio:4/3;background:#000;border-radius:10px;display:block}.cams figcaption{color:var(--mut);font-size:13px;margin-top:4px}
 @media(max-width:640px){.cams{grid-template-columns:1fr}}.mut{color:var(--mut);font-size:14px}
 </style></head><body><main>
@@ -373,11 +382,11 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk" onchange="document.body.classList.toggle('refon',this.checked)"> 학습 때 화면 겹쳐 보기</label>
  <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
-<div class="card"><div class="cams"><figure><img id="img_front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
- <figure><img id="img_wrist" alt=""><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
+<div class="card"><div class="cams"><figure><img id="img_front" alt=""><img class="ref" src="/ref/front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
+ <figure><img id="img_wrist" alt=""><img class="ref" src="/ref/wrist" alt=""><figcaption>손목 카메라 (wrist)</figcaption></figure></div>
  <p class="mut">[카메라 켜기]로 평소에 보고, 녹화를 시작하면 몇 초 끊겼다가 녹화 영상으로 이어진다(녹화 중에는 늘 나온다).</p></div>
 <div class="card"><div class="mut" style="margin-bottom:8px">소켓 자리 (바꾸면 다음 에피소드부터 이 자리로 기록)</div><div class="row" id="poss"></div>
  <div class="mut" id="counts" style="margin-top:10px"></div></div>
