@@ -234,6 +234,26 @@ def rollout_start(req: Roll):
     return {"ok": True}
 
 
+class Mark(BaseModel):
+    ok: bool
+    cond: str = "static"  # static(정지 소켓) 또는 moving(흔들림 갑판)
+
+
+@app.post("/rollout/mark")
+def rollout_mark(req: Mark):
+    """마지막 로봇 실행(data/rollouts/<시각>/)에 사람이 본 판정(꽂힘, 못 꽂음)을 붙인다. 집계: tools/tally_rollouts.py"""
+    d = ACT.parent / "data" / "rollouts"
+    runs = sorted(x for x in d.iterdir() if (x / "meta.json").exists()) if d.exists() else []
+    if not runs:
+        return JSONResponse({"ok": False, "msg": "로봇 실행 기록이 없다"}, 404)
+    last = runs[-1]
+    meta = json.loads((last / "meta.json").read_text())
+    res = {"ok": req.ok, "cond": req.cond, "policy": meta.get("policy", ""), "marked": time.strftime("%Y-%m-%d %H:%M:%S")}
+    (last / "result.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
+    n = sum(1 for x in runs if (x / "result.json").exists())
+    return {"ok": True, "run": last.name, "marked_total": n}
+
+
 @app.post("/rollout/stop")
 def rollout_stop():
     with LOCK:
@@ -582,6 +602,8 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <label>다시 계획 <select id="replan"><option value="100" selected>3.3초마다(학습 그대로)</option><option value="30">1초마다</option><option value="10">0.33초마다</option><option value="1">매 순간(평균)</option></select></label>
  <label>시간(초) <input id="rdur" type="number" value="20" min="5" max="120" style="width:70px"></label>
  <button class="start" id="rstart">로봇 실행</button><button class="quit" id="rstop">멈추기</button></div>
+ <div class="row" style="margin-top:8px"><label>판정 조건 <select id="mcond"><option value="static">정지 소켓</option><option value="moving">흔들림 갑판</option></select></label>
+ <button class="next" id="mok">꽂힘 (성공)</button><button class="redo" id="mfail">못 꽂음 (실패)</button> <span id="mres" class="mut"></span></div>
  <p class="mut">실행 전: 리더 팔은 그대로 두고(이때는 리더를 안 씀), 팔로워를 홈 근처에, 소켓을 표시한 자리에. 사람 손은 부스 밖.
  비상 시 [멈추기] 또는 팔로워 12 V 전원. 끝나면 꽂힌 채로 멈춘다(빼기는 손으로 받치고 다음 녹화나 원격조종 때).</p></div>
 <div class="card"><div class="mut" style="margin-bottom:6px">로그</div><pre id="log"></pre></div>
@@ -601,6 +623,9 @@ loadCkpts();setInterval(loadCkpts,30000);
 $('rstart').onclick=()=>{if(!$('ckpt').value){alert('체크포인트가 아직 없습니다');return}
  if(confirm(`${$('ckpt').value} 로 ${$('rdur').value}초 동안 로봇을 움직입니다. 손을 부스 밖으로!`))post('/rollout/start',{ckpt:$('ckpt').value,duration:+$('rdur').value,replan:+$('replan').value})};
 $('rstop').onclick=()=>post('/rollout/stop');
+// 실행이 끝나면 사람이 보고 판정한다(마지막 실행 기록에 붙음). 발표 9장 숫자는 이 판정을 센다(tools/tally_rollouts.py)
+async function mark(ok){const r=await post('/rollout/mark',{ok:ok,cond:$('mcond').value});$('mres').textContent=r.ok?`${r.run}: ${ok?'성공':'실패'} 기록 (판정 ${r.marked_total}개)`:(r.msg||'실패')}
+$('mok').onclick=()=>mark(true);$('mfail').onclick=()=>mark(false);
 $('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
 $('shk').onclick=async()=>{if(!confirm('갑판을 흔듭니다(정현파 12 mm, 2.5초). 갑판 주변에서 손을 빼세요'))return;const r=await post('/shaker/start',{strong:false});if(!r.ok)alert(r.msg)};
 // [세게 흔들기](16 mm) 버튼은 뺐다: 진폭은 12 mm 하나로 통일(2026-11-06 결정). 서버의 strong 옵션은 남겨 둠
