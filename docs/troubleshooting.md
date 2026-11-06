@@ -92,6 +92,14 @@ RuntimeError: Failed to write 'Torque_Enable' on id_=6 with '0' after 6 tries. [
 - 영향: 학습 데이터 대부분(0~51번)과 다른 시점으로 시험하면 정책이 엉뚱하게 갈 수 있다. act_real_v2 학습 데이터에는 52~53번이 이미 들어갔다.
 - 해결: 녹화 화면의 '학습 때 화면 겹쳐 보기'(20번 에피소드 첫 장면을 반투명으로 겹침)로 맞춘 뒤 머리 관절을 고정한다.
 
+### 19. 녹화 시작하자 `Failed to open OpenCVCamera(... C270 ...)` (미리보기가 주인 없이 남음) [2026-11-06]
+```
+ConnectionError: Failed to open OpenCVCamera(/dev/v4l/by-id/usb-046d_C270_HD_WEBCAM_200901010001-video-index0).
+```
+- 원인: [카메라 켜기]로 미리보기(`act/cam_preview.py`)를 켠 채 녹화 화면 서버를 다시 켜서, 미리보기 두 개가 주인 없이 남아 카메라를 잡고 있었다(`fuser -v /dev/video*`).
+- 해결: 남은 미리보기를 끄고, 서버가 켜질 때와 미리보기를 끌 때 이전 서버가 남긴 `cam_preview.py`도 끄게 고침(`_kill_stray_previews`).
+  카메라 켜기 → 서버 다시 켜기를 해 보고 미리보기가 0개로 정리되는 것을 확인.
+
 ## 그리퍼 덮개
 
 ### 9. 덮개가 마찰로만 끼워져 빠질 수 있음 → 그리퍼가 무는 구조로 [2026-11-03]

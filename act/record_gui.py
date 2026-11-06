@@ -303,7 +303,30 @@ def idle_stop():
             p.kill()
             p.wait()
     IDLE["proc"] = None
+    _kill_stray_previews()
     _cams_free()
+
+
+def _kill_stray_previews():
+    """이전 서버가 남긴 cam_preview.py를 끈다. 미리보기를 켠 채 서버를 다시 켜면 미리보기가 주인 없이 남아
+    카메라를 잡고, 녹화가 'Failed to open OpenCVCamera'로 멈췄다(2026-11-06, 트러블슈팅 19)."""
+    me = IDLE["proc"].pid if IDLE["proc"] is not None else None
+    for d in Path("/proc").iterdir():
+        if not d.name.isdigit() or int(d.name) == me:
+            continue
+        try:
+            cmd = (d / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if any(c.endswith(b"act/cam_preview.py") for c in cmd):
+            try:
+                os.kill(int(d.name), 15)
+            except OSError:
+                pass
+    time.sleep(0.5)
+
+
+_kill_stray_previews()  # 서버가 켜질 때도
 
 
 @app.post("/camera/{onoff}")
