@@ -550,7 +550,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <button class="camb" id="shk">갑판 흔들기</button> <button class="camb" id="shk2">세게 흔들기</button> <button class="camb" id="shkstop">갑판 멈추기</button> <span id="shkst" class="mut"></span> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <button onclick="camRec()">카메라 위치 기록</button> <span id="drift" class="mut"></span>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <button class="camb" id="shk">갑판 흔들기</button> <button class="camb" id="shkstop">갑판 멈추기</button> <span id="shkst" class="mut"></span> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <button onclick="camRec()">카메라 위치 기록</button> <span id="drift" class="mut"></span>
  <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img id="img_front" alt=""><img class="ref" src="/ref/front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
@@ -592,7 +592,7 @@ $('rstart').onclick=()=>{if(!$('ckpt').value){alert('체크포인트가 아직 �
 $('rstop').onclick=()=>post('/rollout/stop');
 $('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
 $('shk').onclick=async()=>{if(!confirm('갑판을 흔듭니다(정현파 12 mm, 2.5초). 갑판 주변에서 손을 빼세요'))return;const r=await post('/shaker/start',{strong:false});if(!r.ok)alert(r.msg)};
-$('shk2').onclick=async()=>{if(!confirm('갑판을 세게 흔듭니다(정현파 16 mm, 2.5초. 보통은 12 mm). 갑판 주변에서 손을 빼세요'))return;const r=await post('/shaker/start',{strong:true});if(!r.ok)alert(r.msg)};
+// [세게 흔들기](16 mm) 버튼은 뺐다: 진폭은 12 mm 하나로 통일(2026-11-06 결정). 서버의 strong 옵션은 남겨 둠
 $('shkstop').onclick=()=>post('/shaker/stop');
 $('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();post('/key/n')}
@@ -601,7 +601,7 @@ function renderPos(list,cur){const b=$('poss');if(b.childElementCount!==list.len
  d.onclick=()=>{lastPos=p;post('/position',{position:p});[...b.children].forEach(c=>c.classList.toggle('on',c.textContent===p))};b.appendChild(d)})}
  [...b.children].forEach(c=>c.classList.toggle('on',c.textContent===cur))}
 async function tick(){try{st=await (await fetch('/state')).json()}catch(e){return}
- $('shk').classList.toggle('on',!!st.shaker);$('shk').textContent=st.shaker?('흔드는 중: '+(st.shaker_mode||'')):'갑판 흔들기';$('shk').disabled=!!st.shaker;$('shk2').disabled=!!st.shaker;$('shkstop').disabled=!st.shaker;
+ $('shk').classList.toggle('on',!!st.shaker);$('shk').textContent=st.shaker?('흔드는 중: '+(st.shaker_mode||'')):'갑판 흔들기';$('shk').disabled=!!st.shaker;$('shkstop').disabled=!st.shaker;
  $('shkst').textContent=(!st.shaker&&st.shaker_log&&st.shaker_log.length)?st.shaker_log[st.shaker_log.length-1]:'';
  if(!lastPos)lastPos=st.position;renderPos(st.positions,st.running?st.position:lastPos);
  $('phase').textContent=st.phase;$('phase').style.color=st.phase==='녹화 중'||st.phase==='로봇 실행 중'?'#22c55e':st.phase.startsWith('정리')?'#f59e0b':'';
