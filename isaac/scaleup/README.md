@@ -63,7 +63,13 @@ OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader /dev/tty
 ```
 
 - 시점: 넓은 시점 `/World/CamWide`, 꽂는 순간 확대 `/World/CamClose`.
-- 끝날 때 `[live] 평균 N 프레임/s`가 나온다. 목표보다 낮으면 UR10e가 늦게 따라오므로 `--fps 20`으로 낮춘다.
+- 여분 팔 등 다른 리더 팔은 먼저 보정한다. 모터 ID가 1~6으로 설정돼 있어야 하고, 보정은 호밍 오프셋을 모터에 쓴다. JSON은 `LEADER_CALIB`로 지정한다(저장소의 `plug_leader.json`은 그대로 둔다):
+  ```bash
+  ~/miniforge3/envs/lerobot/bin/lerobot-calibrate --teleop.type=so101_leader --teleop.port=/dev/ttyACM0 --teleop.id=spare_leader --teleop.calibration_dir=isaac/scaleup/calib
+  LEADER_CALIB=isaac/scaleup/calib/spare_leader.json $PY isaac/scaleup/leader_source.py /dev/ttyACM0
+  ```
+- CH340 계열 포트가 안 보이면 brltty가 잡은 것일 수 있다(이 노트북에 설치돼 있다): `sudo apt remove brltty`.
+- `--live-seconds`로 끝나면 `[live] 평균 N 프레임/s`와 IK 실패 프레임 수가 나온다. 목표보다 낮으면 UR10e가 늦게 따라오므로 `--fps 20`으로 낮춘다. Ctrl+C는 Isaac이 바로 종료해서(exit 0) 이 줄이 나오지 않는다.
 - 메모리: `--lowmem`(창 960x540, 안티에일리어싱 끔)을 쓴다. 더 필요하면 브라우저 등을 끈다.
 - 체험 전에 화면 잠금을 끈다: `gsettings set org.gnome.desktop.session idle-delay 0`. 리더 팔을 움직이는 것은 키보드 입력이 아니라서 유휴로 잡혀 화면이 꺼진다.
 
@@ -72,9 +78,10 @@ OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader /dev/tty
 - 3회 모두 연결 9.9 s(GPU 노트북 녹화 재생과 같은 시각). 평균 29.7 프레임/s(목표 30, 측정 1회).
 - 네트워크를 끊고(`unshare -n`) 로컬 자산으로 끝까지 돌았다.
 - 메모리: Isaac 프로세스 최대 8.3 GB, VS Code와 크롬을 켠 채로 시스템 '사용 가능' 최저 3.5 GB.
-- GUI 창에서 CamClose로 삽입과 표시등 켜짐을 눈으로 확인했다. CamWide는 GUI 캡처 때 화면 잠금이 걸려 있어, 같은 카메라의 헤드리스 프레임으로 구도만 확인했다.
+- GUI 창에서 CamClose와 CamWide로 삽입과 표시등 켜짐을 눈으로 확인했다.
+- 시리얼 경로: 시범 54번을 리더 모터 원값으로 거꾸로 풀어 가상 포트의 가짜 Feetech 모터(시험용 임시 코드, 저장소에 없음)로 보냈다. SDK, 토크 끄기, 원값 변환, IK까지 네트워크 없이 돌아 9.9 s에 연결, Ctrl+C로 종료(exit 0). 진짜 모터 응답이 아니다.
 
-아직 안 한 것: **실물 리더 팔 입력**(포트, 보정값 일치, 사람이 움직일 때의 지연과 조작감)은 시험하지 않았다. 보정값(`calib/plug_leader.json`)은 GPU 노트북에서 보정한 그 팔 기준이다.
+아직 안 한 것: **실물 리더 팔 입력**(실제 포트, 모터 응답, 보정값, 사람이 움직일 때의 지연과 조작감)은 시험하지 않았다. 저장소 보정값(`calib/plug_leader.json`)은 GPU 노트북에서 보정한 그 팔 기준이다.
 
 ## 정한 치수와 이유
 

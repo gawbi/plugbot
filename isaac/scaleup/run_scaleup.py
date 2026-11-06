@@ -711,7 +711,7 @@ def episode_live(source, seed, duration=0.0):
     set_led(False)
     hold_t, t_ins, captured = 0.0, None, None
     t0 = _t.time()
-    n = 0
+    n = n_ik_fail = 0
     print("[live] 리더 팔을 움직이세요. Ctrl+C로 끝", flush=True)
     try:
         while app.is_running() and (duration <= 0 or _t.time() - t0 < duration):
@@ -740,6 +740,8 @@ def episode_live(source, seed, duration=0.0):
                 q_ik = np.asarray(q_ik)
                 qd_ff = (q_ik - q_goal) / dt if started else np.zeros(6)
                 q_goal, started = q_ik, True
+            else:
+                n_ik_fail += 1
             qd_cmd = np.clip(qd_ff + KP_JOINT * (q_goal - q), -QD_MAX, QD_MAX)
             qd = qd + np.clip(qd_cmd - qd, -QDD_MAX * dt, QDD_MAX * dt)
             q = q + qd * dt
@@ -772,7 +774,7 @@ def episode_live(source, seed, duration=0.0):
                 _t.sleep(rest)
     except KeyboardInterrupt:
         pass
-    print(f"[live] 평균 {n / (_t.time() - t0):.1f} 프레임/s (목표 {args.fps}). 목표보다 낮으면 UR10e가 늦게 따라온다: --fps를 낮춘다", flush=True)
+    print(f"[live] 평균 {n / (_t.time() - t0):.1f} 프레임/s (목표 {args.fps}). 목표보다 낮으면 UR10e가 늦게 따라온다: --fps를 낮춘다. IK 실패 {n_ik_fail}/{n} 프레임(그동안 UR10e는 멈춘다)", flush=True)
     return t_ins
 
 
