@@ -47,6 +47,35 @@ OMNI_KIT_ACCEPT_EULA=YES LD_LIBRARY_PATH=~/isaacsim_compat/lib ~/isaacsim_env/bi
 - 시작할 때 UR10e를 SO-101 첫 자세에 대응하는 자세에 둔다(멀리서 따라오느라 늦지 않게). 포착 뒤 옆 방향은 자동 모드와 같은 깔때기 포착 가정을 쓰고 깊이는 시범을 따른다.
   이 가정이 없을 때는 시범이 끝난 뒤 2 s 늦게(9.3 s) 연결됐다. 가정을 넣으면 시범 끝(7.3 s) 뒤 0.4 s에 연결(유지 판정 0.63 s 포함).
 
+## 실시간 이종 원격조종 (리더 팔 입력, `--live-leader`)
+
+리더 팔을 손으로 움직이면 UR10e가 실시간으로 따라간다. 대응식은 재생 모드와 같다(`leader_source.py`가 관절값을 소켓 기준 위치로 바꾼다).
+학습 정책이 아니라 사람이 움직이는 것이고, 소켓 위치는 시뮬레이션 참값, 충돌 계산은 없다.
+
+```bash
+PY=~/isaacsim62_env/bin/python   # Isaac Sim 6.2 환경. feetech-servo-sdk, mujoco, scipy 필요
+OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/fetch_assets.py   # 처음 한 번, 인터넷 필요(103 MB). 선상에 가기 전에
+# 팔 없이 시험: 실물 시범 54번을 입력으로
+OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader fake:isaac/scaleup/sample_traj_ep54.npz --live-seconds 20 --lowmem --live-cam /World/CamClose
+# 리더 팔 확인(Isaac 없이), 그다음 체험(Ctrl+C로 끝)
+$PY isaac/scaleup/leader_source.py /dev/ttyACM0
+OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader /dev/ttyACM0 --lowmem --live-cam /World/CamWide
+```
+
+- 시점: 넓은 시점 `/World/CamWide`, 꽂는 순간 확대 `/World/CamClose`.
+- 끝날 때 `[live] 평균 N 프레임/s`가 나온다. 목표보다 낮으면 UR10e가 늦게 따라오므로 `--fps 20`으로 낮춘다.
+- 메모리: `--lowmem`(창 960x540, 안티에일리어싱 끔)을 쓴다. 더 필요하면 브라우저 등을 끈다.
+- 체험 전에 화면 잠금을 끈다: `gsettings set org.gnome.desktop.session idle-delay 0`. 리더 팔을 움직이는 것은 키보드 입력이 아니라서 유휴로 잡혀 화면이 꺼진다.
+
+확인한 것(2026-11-06, ROG Strix G16, RTX 5070 Ti로 보이는 12 GB GPU, 램 14 GiB, 스왑 32 GB, Ubuntu 24.04, 드라이버 595, Isaac Sim 6.2, fake 입력 3회):
+- 코드의 Isaac API는 5.1에서 고칠 곳 없이 6.2에서 돌았다. 고친 것은 로컬 자산 폴더가 5.1로 고정돼 있던 것뿐이다(버전을 읽어 정한다).
+- 3회 모두 연결 9.9 s(GPU 노트북 녹화 재생과 같은 시각). 평균 29.7 프레임/s(목표 30, 측정 1회).
+- 네트워크를 끊고(`unshare -n`) 로컬 자산으로 끝까지 돌았다.
+- 메모리: Isaac 프로세스 최대 8.3 GB, VS Code와 크롬을 켠 채로 시스템 '사용 가능' 최저 3.5 GB.
+- GUI 창에서 CamClose로 삽입과 표시등 켜짐을 눈으로 확인했다. CamWide는 GUI 캡처 때 화면 잠금이 걸려 있어, 같은 카메라의 헤드리스 프레임으로 구도만 확인했다.
+
+아직 안 한 것: **실물 리더 팔 입력**(포트, 보정값 일치, 사람이 움직일 때의 지연과 조작감)은 시험하지 않았다. 보정값(`calib/plug_leader.json`)은 GPU 노트북에서 보정한 그 팔 기준이다.
+
 ## 정한 치수와 이유
 
 | 항목 | 값 | 이유 |
@@ -84,6 +113,6 @@ OMNI_KIT_ACCEPT_EULA=YES LD_LIBRARY_PATH=~/isaacsim_compat/lib ~/isaacsim_env/bi
 
 ## 못 한 것
 
-- (b) 원격조종은 녹화 궤적 재생까지 했다. **실시간 리더 팔 입력은 아직 없다**(리더 팔을 연결하는 날 관절값을 받아 같은 매핑에 넣는다).
+- (b) 실시간 원격조종 코드는 fake 입력으로만 확인했다. **실물 리더 팔로는 아직 돌리지 않았다**(위 '실시간 이종 원격조종' 절).
 - 플러그와 소켓의 물리 접촉, 케이블, 래치 동작, 실제 커넥터 규격(MCS 7핀 방향 맞춤)은 다루지 않았다.
 - 실제 페리 선형, RAO 기반 선박 운동, 계류줄은 근사(상자 선체, 모형 파도 식을 Froude로 확대)다.

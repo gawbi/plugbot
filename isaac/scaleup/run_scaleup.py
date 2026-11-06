@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 from dataclasses import replace
+from importlib import metadata
 from pathlib import Path
 
 import numpy as np
@@ -97,7 +98,7 @@ QDD_MAX = 6.0  # 관절 가속도 제한(rad/s²): 산업용 팔처럼 매끄럽
 KP_JOINT = 6.0  # 관절 목표를 따라가는 속도 이득(1/s)
 TAU_TARGET, TAU_INSERT, TAU_CAPTURED = 0.25, 0.12, 0.08  # 목표 필터 시정수(s): 관측 잡음과 9.5 Hz 계단을 펴서 떨림을 없앤다. 삽입, 포착 뒤는 빠르게
 PLUG_NPZ = HERE / "plug_iec.npz"  # make_plug_mesh.py. --plug simple이면 예전 원통 플러그
-LOCAL_ASSETS = Path.home() / "isaacsim_assets" / "Assets" / "Isaac" / "5.1"  # isaac/scaleup/fetch_assets.py가 받아 둔 곳
+LOCAL_ASSETS = Path.home() / "isaacsim_assets" / "Assets" / "Isaac" / metadata.version("isaacsim")[:3]  # isaac/scaleup/fetch_assets.py가 받아 둔 곳. [ISAAC 6.2] 버전마다 자산 폴더가 다르다
 PLUG_MESH = dict(np.load(PLUG_NPZ)) if args.plug == "iec" else None
 
 
@@ -710,6 +711,7 @@ def episode_live(source, seed, duration=0.0):
     set_led(False)
     hold_t, t_ins, captured = 0.0, None, None
     t0 = _t.time()
+    n = 0
     print("[live] 리더 팔을 움직이세요. Ctrl+C로 끝", flush=True)
     try:
         while app.is_running() and (duration <= 0 or _t.time() - t0 < duration):
@@ -764,11 +766,13 @@ def episode_live(source, seed, duration=0.0):
             update_cable(*cable_end(p_t, R_t))
             robot.set_joint_positions(q, joint_indices=np.array(dof))  # [ISAAC] 운동학 재생
             world.step(render=True)  # [ISAAC]
+            n += 1
             rest = dt - (_t.time() - loop0)
             if rest > 0:
                 _t.sleep(rest)
     except KeyboardInterrupt:
         pass
+    print(f"[live] 평균 {n / (_t.time() - t0):.1f} 프레임/s (목표 {args.fps}). 목표보다 낮으면 UR10e가 늦게 따라온다: --fps를 낮춘다", flush=True)
     return t_ins
 
 
