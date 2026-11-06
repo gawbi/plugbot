@@ -31,6 +31,9 @@ if Path(FONT).exists():
     font_manager.fontManager.addfont(FONT)
     plt.rcParams["font.family"] = font_manager.FontProperties(fname=FONT).get_name()
 
+if not (ROOT / "meta" / "info.json").exists():
+    # 없는 데이터셋을 열면 LeRobot이 빈 폴더를 만들고, 그 폴더 때문에 녹화가 시작되지 않는다(2026-11-06)
+    sys.exit(f"{ROOT} 에 데이터셋이 없다")
 ds = LeRobotDataset(f"local/plug_{KIND}", root=ROOT)
 eps = ds.meta.episodes
 try:

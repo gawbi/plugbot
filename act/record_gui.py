@@ -554,7 +554,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <div class="err" id="err"></div></div>
 <div class="card"><div class="mut" style="margin-bottom:8px">로봇 혼자 꽂기 (학습한 정책 시험, 녹화 안 함)</div>
  <div class="row"><label>체크포인트 <select id="ckpt"></select></label>
- <label>다시 계획 <select id="replan"><option value="100">3.3초마다(학습 그대로)</option><option value="30">1초마다</option><option value="10" selected>0.33초마다</option><option value="1">매 순간(평균)</option></select></label>
+ <label>다시 계획 <select id="replan"><option value="100" selected>3.3초마다(학습 그대로)</option><option value="30">1초마다</option><option value="10">0.33초마다</option><option value="1">매 순간(평균)</option></select></label>
  <label>시간(초) <input id="rdur" type="number" value="20" min="5" max="120" style="width:70px"></label>
  <button class="start" id="rstart">로봇 실행</button><button class="quit" id="rstop">멈추기</button></div>
  <p class="mut">실행 전: 리더 팔은 그대로 두고(이때는 리더를 안 씀), 팔로워를 홈 근처에, 소켓을 표시한 자리에. 사람 손은 부스 밖.
