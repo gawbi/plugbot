@@ -49,8 +49,8 @@ OMNI_KIT_ACCEPT_EULA=YES LD_LIBRARY_PATH=~/isaacsim_compat/lib ~/isaacsim_env/bi
 
 ## 실시간 이종 원격조종 (리더 팔 입력, `--live-leader`)
 
-리더 팔을 손으로 움직이면 UR10e가 실시간으로 따라간다. 대응식은 재생 모드와 같다(`leader_source.py`가 관절값을 소켓 기준 위치로 바꾼다).
-학습 정책이 아니라 사람이 움직이는 것이고, 소켓 위치는 시뮬레이션 참값, 충돌 계산은 없다.
+리더 팔을 손으로 움직이면 UR10e가 실시간으로 따라간다. 배율은 재생 모드와 같다(`leader_source.py`가 관절값을 소켓 기준 위치로 바꾼다).
+학습 정책이 아니라 사람이 움직이는 것이고, 소켓 위치는 시뮬레이션 참값이다. 물리 접촉은 계산하지 않고, 충돌 방지는 아래의 기하 근사다.
 
 ```bash
 PY=~/isaacsim62_env/bin/python   # Isaac Sim 6.2 환경. feetech-servo-sdk, mujoco, scipy 필요
@@ -59,17 +59,23 @@ OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/fetch_assets.py   # 처음 한 번, �
 OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader fake:isaac/scaleup/sample_traj_ep54.npz --live-seconds 20 --lowmem --live-cam /World/CamClose
 # 리더 팔 확인(Isaac 없이), 그다음 체험(Ctrl+C로 끝)
 $PY isaac/scaleup/leader_source.py /dev/ttyACM0
-OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader /dev/ttyACM0 --lowmem --live-cam /World/CamWide
+OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader /dev/ttyACM0 --lowmem
 ```
 
-- 시점: 넓은 시점 `/World/CamWide`, 꽂는 순간 확대 `/World/CamClose`.
+- 화면: 실물과 같은 카메라 2대를 나란히 띄운다. 왼쪽 앞 카메라 `/World/CamFront`, 오른쪽 손목 카메라 `/World/CamWrist`, 아래 상태 줄(`Teleop`, `CONNECTED`, `HOLD: collision guard (...)`). 왼쪽은 `--live-cam /World/CamWide`나 `/World/CamClose`로 바꿀 수 있다.
+  - 앞 카메라: 실물 D435 자리(정면 60, 오른쪽 220, 받침 위 300 mm)를 ×4 한 시선 방향 그대로 팔이 닿지 않는 곳까지 물렸다. 손목 카메라: 플러그 위에 달았고 세로 화각 61°는 실물과 같다.
+- 배치(실시간 조종에서만, 다른 모드는 그대로): 로봇을 0.15 m 뒤로(접은 리더 자세의 목표가 어깨 위로 오면 플러그가 팔, 받침과 부딪히고 IK 특이점에 걸린다), 캐비닛을 로봇 옆으로(뒤에 두면 케이블이 받침을 가로지른다).
+- 충돌을 막는 세 겹(`collision.py`, `python isaac/scaleup/collision.py`로 자체 시험):
+  1. 가상 울타리: 목표를 소켓 기준 안전 구역으로 제한한다(실물 시범의 범위를 덮고 약간 넓힘, 핀 각도 60°까지). 리더 팔을 어떻게 움직여도 UR10e는 이 안에 머문다.
+  2. 연속 추종(감쇠 최소제곱): 전역 IK는 도달 한계에서 다른 자세의 해를 돌려줘 팔이 바닥 아래로 뒤집혔다(-686 mm). 현재 자세에서 조금씩 다가가므로 뒤집히지 않고, 못 닿는 목표에서는 가장 가까이 머문다.
+  3. 충돌 방지: Isaac의 UR10e 충돌 구에 플러그와 카메라 구를 더해 바닥, 받침, 캐비닛, 카메라 기둥, 현측, 소켓, 자기 자신과의 여유를 매 프레임 잰다. 3 cm 안으로 들어가는 움직임은 막고 되는 관절만 움직인다. 포착된 핀은 깔때기 포착 가정대로 보어 바닥만 본다. `--no-guard`로 끄고 비교할 수 있다.
 - 여분 팔 등 다른 리더 팔은 먼저 보정한다. 모터 ID가 1~6으로 설정돼 있어야 하고, 보정은 호밍 오프셋을 모터에 쓴다. JSON은 `LEADER_CALIB`로 지정한다(저장소의 `plug_leader.json`은 그대로 둔다):
   ```bash
   ~/miniforge3/envs/lerobot/bin/lerobot-calibrate --teleop.type=so101_leader --teleop.port=/dev/ttyACM0 --teleop.id=spare_leader --teleop.calibration_dir=isaac/scaleup/calib
   LEADER_CALIB=isaac/scaleup/calib/spare_leader.json $PY isaac/scaleup/leader_source.py /dev/ttyACM0
   ```
 - CH340 계열 포트가 안 보이면 brltty가 잡은 것일 수 있다(이 노트북에 설치돼 있다): `sudo apt remove brltty`.
-- `--live-seconds`로 끝나면 `[live] 평균 N 프레임/s`와 IK 실패 프레임 수가 나온다. 목표보다 낮으면 UR10e가 늦게 따라오므로 `--fps 20`으로 낮춘다. Ctrl+C는 Isaac이 바로 종료해서(exit 0) 이 줄이 나오지 않는다.
+- `--live-seconds`로 끝나면 `[live]` 줄에 충돌 방지 정지 프레임, 최소 여유와 위치, 평균 프레임, 목표에 못 닿은 프레임이 나온다. 프레임이 목표보다 낮으면 UR10e가 늦게 따라오므로 `--fps 20`으로 낮춘다. Ctrl+C는 Isaac이 바로 종료해서(exit 0) 이 줄이 나오지 않는다.
 - 메모리: `--lowmem`(창 960x540, 안티에일리어싱 끔)을 쓴다. 더 필요하면 브라우저 등을 끈다.
 - 체험 전에 화면 잠금을 끈다: `gsettings set org.gnome.desktop.session idle-delay 0`. 리더 팔을 움직이는 것은 키보드 입력이 아니라서 유휴로 잡혀 화면이 꺼진다.
 
@@ -80,6 +86,22 @@ OMNI_KIT_ACCEPT_EULA=YES $PY isaac/scaleup/run_scaleup.py --live-leader /dev/tty
 - 메모리: Isaac 프로세스 최대 8.3 GB, VS Code와 크롬을 켠 채로 시스템 '사용 가능' 최저 3.5 GB.
 - GUI 창에서 CamClose와 CamWide로 삽입과 표시등 켜짐을 눈으로 확인했다.
 - 시리얼 경로: 시범 54번을 리더 모터 원값으로 거꾸로 풀어 가상 포트의 가짜 Feetech 모터(시험용 임시 코드, 저장소에 없음)로 보냈다. SDK, 토크 끄기, 원값 변환, IK까지 네트워크 없이 돌아 9.9 s에 연결, Ctrl+C로 종료(exit 0). 진짜 모터 응답이 아니다.
+
+충돌 방지 시험(가짜 입력, 렌더 없음, `run_scaleup.py`. 여유는 구 모델 기준이고 물리 접촉 계산이 아니다):
+
+| 입력 | 방지 끔 | 방지 켬 |
+|---|---|---|
+| 실물 시범 54번, 시드 2 | 연결 9.9 s, 최소 여유 -11 mm(플러그와 위팔) | 연결 9.9 s, 정지 73/538 프레임, 최소 여유 +8 mm(플러그와 소켓) |
+| 리더 관절 범위 전체 40 s, 시드 2 | 최소 여유 -154 mm(플러그와 어깨) | 최소 여유 +30 mm, 정지 706/1188 프레임 |
+
+- 입구 앞 대기, 밀어 넣기, 빼기를 되풀이하는 가짜 조작(사람의 눈 피드백 없음, 파고 0.6 m): 시드 0~9 모두 연결, 첫 연결 9.3~12.0 s.
+- 범위 전체를 30 s 쓸어 본 뒤 같은 조작: 파고 0에서는 9.4 s 만에 연결.
+- 평균 약 29.6 프레임/s(목표 30). GUI 두 화면 `--lowmem`: Isaac 프로세스 최대 8.1 GB, 시스템 '사용 가능' 최저 5.2 GB, GPU 메모리 최대 3.1 GB.
+
+알려진 한계:
+- **파도 속에서 범위 전체를 30 s 쓸어 본 뒤에는 그다음 40 s 안에 다시 꽂지 못했다**(정지 1067/2080 프레임). 원인은 확정하지 못했다(이상한 자세에 머무는 것으로 추정). 이렇게 되면 Ctrl+C 뒤 다시 시작한다.
+- 파도가 있을 때 켠 상태에서도 음수 여유가 남는다(시드 1에서 -118 mm 보어 바닥, 시드 4와 9에서 -30 mm 소켓). 핀이 보어나 입구에 있을 때의 값이라 배 운동 탓으로 보지만 시드별로 확인하지는 않았다. 팔을 멈추는 방식이라 다가오는 배를 피하지는 못한다.
+- 케이블은 보이기 위한 곡선이라 충돌 방지에 넣지 않았다. 팔을 접은 자세 근처에서 팔과 겹칠 수 있다(시범 54번 최소 -9 mm, 범위 전체 -229 mm).
 
 아직 안 한 것: **실물 리더 팔 입력**(실제 포트, 모터 응답, 보정값, 사람이 움직일 때의 지연과 조작감)은 시험하지 않았다. 저장소 보정값(`calib/plug_leader.json`)은 GPU 노트북에서 보정한 그 팔 기준이다.
 
