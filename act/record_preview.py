@@ -29,9 +29,32 @@ _get_action = SOLeader.get_action
 _send = SOFollower.send_action
 
 
+ROLL_LOG = {"dir": None, "t0": None, "rows": []}  # --plugbot-entry=rollout이면 data/rollouts/<시각>/에 관절과 옆면 영상을 남긴다
+
+
+def _roll_log(obs, now):
+    d = ROLL_LOG["dir"]
+    if d is None:
+        return
+    if ROLL_LOG["t0"] is None:
+        ROLL_LOG["t0"] = now
+    k = len(ROLL_LOG["rows"])
+    ROLL_LOG["rows"].append([round(now - ROLL_LOG["t0"], 4)] + [float(obs[f"{j}.pos"]) for j in JOINTS])
+    for cam in ("front", "wrist"):
+        v = obs.get(cam)
+        if isinstance(v, np.ndarray):
+            cv2.imwrite(str(d / cam / f"{k:05d}.jpg"), cv2.cvtColor(v, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if k % 30 == 0:  # 1초마다 저장(중간에 멈춰도 남게)
+        np.save(d / "state.npy", np.array(ROLL_LOG["rows"], np.float32))
+
+
+JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
+
+
 def get_observation(self):
     obs = _get_obs(self)
     now = time.time()
+    _roll_log(obs, now)
     if now - _last[0] > 1 / 15:
         _last[0] = now
         for k, v in obs.items():
@@ -77,8 +100,19 @@ if __name__ == "__main__":
             entry = a.split("=", 1)[1]
     print(f"[plugbot] {entry}: 카메라 미리보기 {SHM}, 그리퍼 하한 {GRIP_MIN}", flush=True)
     if entry == "rollout":
+        import atexit
+        import json
+
         from lerobot.scripts import lerobot_rollout
 
+        d = Path(__file__).resolve().parents[1] / "data" / "rollouts" / time.strftime("%Y%m%d_%H%M%S")
+        for cam in ("front", "wrist"):
+            (d / cam).mkdir(parents=True, exist_ok=True)
+        ROLL_LOG["dir"] = d
+        pol = next((a.split("=", 1)[1] for a in args if a.startswith("--policy.path=")), "")
+        (d / "meta.json").write_text(json.dumps({"policy": pol, "args": args, "joints": JOINTS}, ensure_ascii=False, indent=1))
+        atexit.register(lambda: np.save(d / "state.npy", np.array(ROLL_LOG["rows"], np.float32)))
+        print(f"[plugbot] 로봇 실행 기록: {d}", flush=True)
         sys.argv = ["lerobot-rollout", *args]
         lerobot_rollout.main()
     else:

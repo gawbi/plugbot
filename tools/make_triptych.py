@@ -1,4 +1,4 @@
-"""발표용 1:1:1 비교 영상: 실물 SO-101 시범 | 같은 궤적을 실제 크기 UR10e로(Isaac Sim) | 현대차 ACR 공식 영상.
+"""발표용 1:1:1 비교 영상: 실물 SO-101 원격조종 시범(= ACT 학습 데이터) | 이종 원격조종: 같은 궤적을 실제 크기 UR10e로(Isaac Sim) | 현대차 ACR 공식 영상.
 
 왼쪽과 가운데는 같은 시각(실물 시범의 타임스탬프)으로 맞춘다. 오른쪽은 참고 영상이라 시각을 맞추지 않고 꽂는 구간만 잘라 붙인다.
 입력:
@@ -115,17 +115,36 @@ BG, FG, MUT, ACC = (14, 18, 26), (240, 244, 248), (150, 160, 175), (255, 138, 31
 out = ROOT / "outputs" / f"triptych_ep{args.episode}.mp4"
 enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(args.fps),
                         "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", str(out)], stdin=subprocess.PIPE)
-LABELS = [("사람 시범", "SO-101 실물, 원격조종 (모형 크기)"),
-          ("같은 궤적, 실제 크기", "UR10e + 전기 페리 현측 소켓 (Isaac Sim)"),
+LABELS = [("원격조종 시범 = ACT 학습 데이터", "SO-101 리더 팔 → 팔로워 팔 (실물, 모형 크기)"),
+          ("이종 원격조종: 같은 동작을 실제 크기로", "UR10e + 전기 페리 현측 소켓 (Isaac Sim)"),
           ("영감: 자동차 충전 로봇", "Hyundai Motor Group ACR (공식 영상)")]
 preview = None
+# 소개 화면(3.5 s): 발표에서 이 영상을 소개하는 말과 같은 순서
+INTRO = [("1", "작은 팔(SO-101)로 원격조종해 꽂는 시범을 모은다", "이 시범이 ACT의 학습 데이터"),
+         ("2", "같은 동작을 실제 크기 산업용 로봇으로 옮긴다", "이종 원격조종: SO-101 → UR10e, 전기 페리 현측 소켓"),
+         ("3", "출발점은 자동차 충전 로봇", "현대차 ACR이 주차된 차에 하던 일을, 흔들리는 배에서")]
+for f in range(int(3.5 * args.fps)):
+    can = Image.new("RGB", (W, H), BG)
+    dr = ImageDraw.Draw(can)
+    dr.text((W // 2, 230), "자동차에서 배운 '꽂기'를, 흔들리는 배로", font=F_TITLE, fill=FG, anchor="mm")
+    for j, (num, a1, a2) in enumerate(INTRO):
+        if f < int((0.4 + 0.8 * j) * args.fps):
+            continue
+        y = 380 + j * 170
+        dr.ellipse((300, y, 380, y + 80), fill=ACC)
+        dr.text((340, y + 40), num, font=F_LAB, fill=BG, anchor="mm")
+        dr.text((420, y + 2), a1, font=font(40), fill=FG)
+        dr.text((420, y + 56), a2, font=F_SUB, fill=MUT)
+    enc.stdin.write(np.asarray(can).tobytes())
+    if f == int(3.4 * args.fps):
+        can.save(ROOT / "outputs" / f"triptych_ep{args.episode}_intro.png")
 for f in range(n):
     t = f / args.fps
     k = min(f, len(real) - 1)
     can = Image.new("RGB", (W, H), BG)
     dr = ImageDraw.Draw(can)
     dr.text((X0, 60), "자동차에서 배운 '꽂기'를, 흔들리는 배로", font=F_TITLE, fill=FG)
-    dr.text((X0, 140), "왼쪽과 가운데는 같은 시각입니다. 사람이 소켓 앞에서 멈추면 산업용 로봇도 같은 순간에 멈춥니다.", font=F_SUB, fill=MUT)
+    dr.text((X0, 140), "작은 팔로 원격조종한 시범이 ACT의 학습 데이터가 되고, 같은 동작은 실제 크기 산업용 로봇으로 옮겨집니다. 왼쪽과 가운데는 같은 시각입니다.", font=F_SUB, fill=MUT)
     ims = [fit43(real[k]), isaac_at(t), fit43(Image.fromarray(acr[min(f, len(acr) - 1)]))]
     for i, (im, (lab, sub)) in enumerate(zip(ims, LABELS)):
         x = X0 + i * (PW + GAP)
@@ -147,7 +166,7 @@ for f in range(n):
                              fill=(ACC if on else (36, 42, 56)))
         dr.text((bx + j * seg + seg // 2, by + 23), name, font=F_SMALL, fill=(BG if on else MUT), anchor="mm")
     dr.text((bx + bw + GAP, by + 10), f"{t:5.1f} s", font=F_SUB, fill=FG)
-    dr.text((X0, H - 70), "가운데: 사람 시범의 손끝 궤적(소켓 기준)을 실제 크기로 옮겨 재생한 시각화입니다. 학습한 정책이 UR10e를 움직인 것이 아닙니다.  "
+    dr.text((X0, H - 70), "가운데: 왼쪽 원격조종 시범의 손끝 궤적(소켓 기준)을 실제 크기 UR10e로 옮겨 재생한 시뮬레이션입니다(녹화한 시범의 재생, 실시간 조종 아님).  "
             "오른쪽 출처: Hyundai Motor Group, \"Newly Developed Automatic Charging Robot (ACR)\" (2023)", font=font(17, False), fill=MUT)
     enc.stdin.write(np.asarray(can).tobytes())
     if preview is None and ph == 2:
@@ -155,4 +174,4 @@ for f in range(n):
 enc.stdin.close()
 enc.wait()
 (preview or can).save(ROOT / "outputs" / f"triptych_ep{args.episode}.png")
-print(out, f"{n / args.fps:.1f} s")
+print(out, f"{n / args.fps + 3.5:.1f} s")
