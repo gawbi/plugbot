@@ -589,7 +589,12 @@ def grow(local):
 
 
 def replay_targets(ep_dir):
-    """SO-101 시범(관절, 30 fps) → 각 시각의 (핀 끝의 모형 소켓 기준 상대 위치, 핀 방향) — 소켓 좌표계."""
+    """SO-101 시범(관절, 30 fps) → 각 시각의 (핀 끝의 모형 소켓 기준 상대 위치, 핀 방향) — 소켓 좌표계.
+    ep_dir가 .npz면 실물 시범에서 미리 뽑은 궤적(isaac/scaleup/real_episode_traj.py)을 그대로 쓴다."""
+    if str(ep_dir).endswith(".npz"):
+        z = np.load(ep_dir)
+        meta = json.loads(Path(str(ep_dir)[:-4] + ".json").read_text())
+        return meta, [(float(t), r, p) for t, r, p in zip(z["t"], z["rel"], z["pin"])]
     import mujoco
     from plugbot.scene import Scene, ship_pose
     meta = json.loads((Path(ep_dir) / "meta.json").read_text())
