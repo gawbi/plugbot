@@ -29,7 +29,14 @@ POSITIONS = ["가운데", "왼쪽 2 cm", "오른쪽 2 cm", "로봇 쪽 1.5 cm", 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 app = FastAPI()
-S = {"proc": None, "fd": None, "kind": "static", "position": POSITIONS[0], "phase": "대기", "episode": None,
+# 마지막으로 고른 종류(정지, 흔들림)를 기억한다. 서버를 다시 켤 때마다 '정지 소켓'으로 돌아가서
+# 흔들림 시범이 두 번이나 plug_static에 섞였다(2026-11-06)
+KIND_FILE = Path.home() / ".cache" / "plugbot_gui_kind"
+try:
+    _KIND0 = KIND_FILE.read_text().strip() if KIND_FILE.read_text().strip() in ("static", "moving") else "static"
+except OSError:
+    _KIND0 = "static"
+S = {"proc": None, "fd": None, "kind": _KIND0, "position": POSITIONS[0], "phase": "대기", "episode": None,
      "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": "", "cam_on": False, "rollout": None}
 LOCK = threading.Lock()
 
@@ -130,6 +137,10 @@ def start(req: Start):
         proc = subprocess.Popen(["bash", str(ACT / "record.sh"), req.kind, str(req.n)], stdin=slave, stdout=slave,
                                 stderr=slave, cwd=ACT.parent, env=env, start_new_session=True)
         os.close(slave)
+        try:
+            KIND_FILE.write_text(req.kind)
+        except OSError:
+            pass
         S.update(proc=proc, fd=master, kind=req.kind, position=req.position, phase="연결 중", episode=None,
                  phase_t0=time.time(), target=req.n, added=saved_count(req.kind), error="")
         S["log"].clear()
@@ -601,6 +612,7 @@ function renderPos(list,cur){const b=$('poss');if(b.childElementCount!==list.len
  d.onclick=()=>{lastPos=p;post('/position',{position:p});[...b.children].forEach(c=>c.classList.toggle('on',c.textContent===p))};b.appendChild(d)})}
  [...b.children].forEach(c=>c.classList.toggle('on',c.textContent===cur))}
 async function tick(){try{st=await (await fetch('/state')).json()}catch(e){return}
+ if(!window._kindSynced){window._kindSynced=true;$('kind').value=st.kind}
  $('shk').classList.toggle('on',!!st.shaker);$('shk').textContent=st.shaker?('흔드는 중: '+(st.shaker_mode||'')):'갑판 흔들기';$('shk').disabled=!!st.shaker;$('shkstop').disabled=!st.shaker;
  $('shkst').textContent=(!st.shaker&&st.shaker_log&&st.shaker_log.length)?st.shaker_log[st.shaker_log.length-1]:'';
  if(!lastPos)lastPos=st.position;renderPos(st.positions,st.running?st.position:lastPos);
