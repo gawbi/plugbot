@@ -85,7 +85,12 @@ def find_port():
     sys.exit("servo not found: check USB cable, 5V adapter, jumper on B")
 
 
-state = {"mode": "s", "amp": 12.0, "per": 2.5, "run": True}
+# 시작 진폭과 주기: 기본은 윈도우판과 같은 12 mm, 2.5 s. 녹화 화면의 [세게 흔들기]는 SHAKER_AMP=16 으로 켠다(2026-11-06).
+# 16 mm면 서보 약 57°(제한 60° 바로 안쪽. 17 mm부터 60°에 걸려 잘림). + 키 상한은 시작 진폭과 12 중 큰 값
+AMP0 = float(os.environ.get("SHAKER_AMP", "12"))
+PER0 = float(os.environ.get("SHAKER_PERIOD", "2.5"))
+AMP_MAX = max(12.0, AMP0)
+state = {"mode": "s", "amp": AMP0, "per": PER0, "run": True}
 
 
 def keys():
@@ -94,7 +99,7 @@ def keys():
         if c in ("s", "w", "h"):
             state["mode"] = c
         elif c == "+":
-            state["amp"] = min(12, state["amp"] + 1)
+            state["amp"] = min(AMP_MAX, state["amp"] + 1)
         elif c == "-":
             state["amp"] = max(0, state["amp"] - 1)
         elif c.startswith("p") and len(c) > 1:
@@ -111,6 +116,7 @@ def main():
         k.write1ByteTxRx(p, 1, 40, 1)
         threading.Thread(target=keys, daemon=True).start()
         print("keys: s sine / w waves / h hold / + - amp / p2.5 period / q quit")
+        print("start amp", state["amp"], "mm  period", state["per"], "s")
         t0 = time.time()
         while state["run"]:
             t = time.time() - t0
