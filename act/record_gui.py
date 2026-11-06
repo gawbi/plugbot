@@ -342,31 +342,65 @@ def ref(name: str):
     return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
-_REF_EDGE = {}
+_DRIFT = {}  # 이번 세션 기준 화면(옆면)의 특징점
 
 
-def _edges(img):
+def _orb(img):
     import cv2
-    import numpy as np
-    g = cv2.equalizeHist(cv2.cvtColor(cv2.resize(img, (640, 480)), cv2.COLOR_BGR2GRAY))
-    return np.float32(cv2.Canny(g, 50, 150))
+    g = cv2.cvtColor(cv2.resize(img, (640, 480)), cv2.COLOR_BGR2GRAY)
+    orb = cv2.ORB_create(1500)
+    return orb.detectAndCompute(cv2.equalizeHist(g), None)
 
 
-@app.get("/drift")
-def drift():
-    # 옆면 카메라가 학습 때 화면에서 몇 픽셀 밀렸는지(윤곽선 위상 상관). 조명을 크게 바꾸면 값이 틀릴 수 있다
+def _cur_front():
     import cv2
     import numpy as np
     f = CAM / "front.jpg"
     if not f.exists() or time.time() - f.stat().st_mtime > 3:
-        return {"ok": False}
-    if "front" not in _REF_EDGE:
-        _REF_EDGE["front"] = _edges(cv2.imread(str(ACT.parent / "outputs" / "camera_ref" / "dataset_front.jpg")))
-    cur = cv2.imdecode(np.frombuffer(f.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
+        return None
+    return cv2.imdecode(np.frombuffer(f.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
+
+
+@app.post("/drift/reset")
+def drift_reset():
+    # 지금 옆면 화면을 이번 세션 기준으로 삼고 outputs/camera_ref/session_<시각>.jpg로 남긴다(접고 펼 때마다 카메라 위치 기록)
+    import cv2
+    cur = _cur_front()
+    if cur is None:
+        return JSONResponse({"ok": False, "msg": "카메라 영상 없음"}, 409)
+    _DRIFT.update(kp=_orb(cur), t=time.strftime("%Y%m%d_%H%M%S"))
+    cv2.imwrite(str(ACT.parent / "outputs" / "camera_ref" / f"session_{_DRIFT['t']}.jpg"), cur)
+    return {"ok": True, "t": _DRIFT["t"]}
+
+
+@app.get("/drift")
+def drift():
+    # (화면에는 안 쓴다. 갑판, 소켓 움직임과 구분이 안 됨) 옆면 카메라가 이번 세션 기준 화면에서 얼마나 움직였는지. 특징점(ORB) 맞춤 + RANSAC이라 팔이 화면에 들어와도 덜 흔들린다.
+    # 2026-11-06: 처음에는 학습 데이터 화면과 위상 상관으로 쟀는데, 카메라가 가까워져 크기가 바뀌자 19~190 px로 튀었다
+    import cv2
+    import numpy as np
+    cur = _cur_front()
     if cur is None:
         return {"ok": False}
-    (dx, dy), resp = cv2.phaseCorrelate(_REF_EDGE["front"], _edges(cur))
-    return {"ok": True, "dx": round(dx, 1), "dy": round(dy, 1), "px": round(float(np.hypot(dx, dy)), 1), "resp": round(float(resp), 3)}
+    if "kp" not in _DRIFT:
+        drift_reset()
+    k0, d0 = _DRIFT["kp"]
+    k1, d1 = _orb(cur)
+    if d0 is None or d1 is None:
+        return {"ok": False}
+    m = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True).match(d0, d1)
+    if len(m) < 12:
+        return {"ok": True, "bad": True, "since": _DRIFT["t"]}
+    p0 = np.float32([k0[x.queryIdx].pt for x in m])
+    p1 = np.float32([k1[x.trainIdx].pt for x in m])
+    M, inl = cv2.estimateAffinePartial2D(p0, p1, method=cv2.RANSAC, ransacReprojThreshold=3)
+    if M is None or inl.sum() < 12:
+        return {"ok": True, "bad": True, "since": _DRIFT["t"]}
+    # 화면 네 귀퉁이가 평균 몇 픽셀 옮겨졌는지(이동, 회전, 크기 변화를 한 숫자로)
+    c = np.float32([[0, 0], [640, 0], [0, 480], [640, 480]])
+    moved = c @ M[:, :2].T + M[:, 2]
+    px = float(np.linalg.norm(moved - c, axis=1).mean())
+    return {"ok": True, "px": round(px, 1), "inliers": int(inl.sum()), "since": _DRIFT["t"]}
 
 
 @app.get("/frame/{name}")
@@ -409,7 +443,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <span id="drift" class="mut"></span>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <button onclick="camRec()">카메라 위치 기록</button> <span id="drift" class="mut"></span>
  <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img id="img_front" alt=""><img class="ref" src="/ref/front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
@@ -469,11 +503,9 @@ setInterval(tick,300);tick();
 {const c=$('refchk');let on=true;try{on=localStorage.getItem('refon')!=='0'}catch(e){}
  c.checked=on;document.body.classList.toggle('refon',on);
  c.onchange=()=>{document.body.classList.toggle('refon',c.checked);try{localStorage.setItem('refon',c.checked?'1':'0')}catch(e){}}}
-async function driftTick(){const el=$('drift');try{const d=await (await fetch('/drift')).json();
- if(!d.ok){el.textContent='';return}
- const col=d.px<8?'var(--ok)':d.px<20?'var(--warn)':'var(--bad)';
- el.innerHTML=`옆면 카메라 밀림 <b style="color:${col}">${d.px.toFixed(0)} px</b> (가로 ${d.dx.toFixed(0)}, 세로 ${d.dy.toFixed(0)})`+(d.px>=20?' : 카메라 머리를 겹쳐 보기에 맞춰 주세요':'')}catch(e){}}
-setInterval(driftTick,2000);
+// 옆면 카메라 위치 기록: 접고 펼 때마다 [카메라 위치 기록]. 실시간 밀림 숫자는 뺐다(2026-11-06: 벽에 무늬가 없어
+// 소켓, 브래킷, 볼트로만 재게 되는데 이것들은 소켓 자리 바꾸기와 갑판 흔들림에 같이 움직여 카메라 움직임과 구분이 안 됨)
+async function camRec(){const r=await post('/drift/reset');$('drift').textContent=r.ok?('기록함 '+r.t):(r.msg||'실패')}
 {const r=$('refop');try{const v=localStorage.getItem('refop');if(v)r.value=v}catch(e){}
  const ap=()=>{document.body.style.setProperty('--refop',r.value/100);try{localStorage.setItem('refop',r.value)}catch(e){}};r.oninput=ap;ap()}
 function pull(name){const im=$('img_'+name);const next=()=>setTimeout(()=>pull(name),100);
