@@ -342,6 +342,33 @@ def ref(name: str):
     return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
+_REF_EDGE = {}
+
+
+def _edges(img):
+    import cv2
+    import numpy as np
+    g = cv2.equalizeHist(cv2.cvtColor(cv2.resize(img, (640, 480)), cv2.COLOR_BGR2GRAY))
+    return np.float32(cv2.Canny(g, 50, 150))
+
+
+@app.get("/drift")
+def drift():
+    # 옆면 카메라가 학습 때 화면에서 몇 픽셀 밀렸는지(윤곽선 위상 상관). 조명을 크게 바꾸면 값이 틀릴 수 있다
+    import cv2
+    import numpy as np
+    f = CAM / "front.jpg"
+    if not f.exists() or time.time() - f.stat().st_mtime > 3:
+        return {"ok": False}
+    if "front" not in _REF_EDGE:
+        _REF_EDGE["front"] = _edges(cv2.imread(str(ACT.parent / "outputs" / "camera_ref" / "dataset_front.jpg")))
+    cur = cv2.imdecode(np.frombuffer(f.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
+    if cur is None:
+        return {"ok": False}
+    (dx, dy), resp = cv2.phaseCorrelate(_REF_EDGE["front"], _edges(cur))
+    return {"ok": True, "dx": round(dx, 1), "dy": round(dy, 1), "px": round(float(np.hypot(dx, dy)), 1), "resp": round(float(resp), 3)}
+
+
 @app.get("/frame/{name}")
 def frame(name: str):
     """가장 최근 한 장. 화면이 0.1초마다 새로 받아 간다(긴 스트림은 녹화와 미리보기가 바뀔 때 멈춰 버렸다)."""
@@ -382,7 +409,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk" onchange="document.body.classList.toggle('refon',this.checked)"> 학습 때 화면 겹쳐 보기</label>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <span id="drift" class="mut"></span>
  <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img id="img_front" alt=""><img class="ref" src="/ref/front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
@@ -438,6 +465,15 @@ async function tick(){try{st=await (await fetch('/state')).json()}catch(e){retur
  if($('delb').textContent!=='지우는 중...')$('delb').disabled=st.running||st.saved<1;$('start').disabled=st.running;$('kind').disabled=st.running;
  $('err').textContent=st.error||'';$('log').textContent=st.log.join('\\n');}
 setInterval(tick,300);tick();
+// 겹쳐 보기는 기본으로 켠다(녹화 중에도). 끈 것은 이 브라우저에 기억
+{const c=$('refchk');let on=true;try{on=localStorage.getItem('refon')!=='0'}catch(e){}
+ c.checked=on;document.body.classList.toggle('refon',on);
+ c.onchange=()=>{document.body.classList.toggle('refon',c.checked);try{localStorage.setItem('refon',c.checked?'1':'0')}catch(e){}}}
+async function driftTick(){const el=$('drift');try{const d=await (await fetch('/drift')).json();
+ if(!d.ok){el.textContent='';return}
+ const col=d.px<8?'var(--ok)':d.px<20?'var(--warn)':'var(--bad)';
+ el.innerHTML=`옆면 카메라 밀림 <b style="color:${col}">${d.px.toFixed(0)} px</b> (가로 ${d.dx.toFixed(0)}, 세로 ${d.dy.toFixed(0)})`+(d.px>=20?' : 카메라 머리를 겹쳐 보기에 맞춰 주세요':'')}catch(e){}}
+setInterval(driftTick,2000);
 function pull(name){const im=$('img_'+name);const next=()=>setTimeout(()=>pull(name),100);
  const n=new Image();n.onload=()=>{im.src=n.src;next()};n.onerror=()=>setTimeout(()=>pull(name),500);n.src='/frame/'+name+'?t='+Date.now()}
 pull('front');pull('wrist');
