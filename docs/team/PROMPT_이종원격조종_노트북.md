@@ -1,7 +1,7 @@
 # 다른 노트북: Isaac Sim 이종 원격조종(SO-101 리더 팔 → UR10e) 설정 프롬프트
 
 > 이 파일 전체를 다른 노트북의 Claude Code에 붙여 넣는다. 빈 폴더에서 시작해도 된다.
-> 작성 2026-11-06, 팀장 김광빈. 모델은 Opus, 노력 수준 high 이상을 권한다.
+> 작성 2026-11-06, 팀장 김광빈. 모델은 Opus, 노력 수준 high 이상을 권한다. 이 노트북: Isaac Sim 6.2(설치돼 있음), 램 16 GB, 스왑 있음.
 
 ---
 
@@ -42,6 +42,8 @@ cd plugbot && git checkout -b teleop-laptop2
 ```bash
 uname -a; lsb_release -a 2>/dev/null; nvidia-smi; free -h; swapon --show; df -h ~; python3 --version
 ```
+- **Isaac Sim은 이 노트북에 6.2가 이미 설치돼 있다(사용자 확인).** 새로 설치하지 말고, 어디에 어떻게 깔렸는지(pip 가상환경인지, 설치 폴더와 python.sh인지)부터 찾아 그 파이썬을 쓴다.
+  `find ~ -maxdepth 4 \( -name python.sh -o -name "isaacsim*" \) 2>/dev/null | head`, 그 파이썬에서 `python -c "import isaacsim, importlib.metadata as m; print(m.version('isaacsim'))"`로 버전을 확인한다.
 - **GPU**: NVIDIA RTX 계열이어야 Isaac Sim이 돈다. 드라이버 버전 확인(우분투 26.04면 580-open, CLAUDE.md 참고). GPU가 없거나 RTX가 아니면 7절 대체안으로 간다.
 - **램 16 GB**: Isaac Sim 5.1 권장은 32 GB다. 스왑 파일은 사용자가 이미 만들어 두었다(`swapon --show`로 확인만 한다). 3절의 메모리 대책을 차례로 쓴다.
 - 디스크 여유 50 GB 이상(Isaac pip 설치와 캐시).
@@ -55,13 +57,16 @@ uname -a; lsb_release -a 2>/dev/null; nvidia-smi; free -h; swapon --show; df -h 
 4. 그래도 메모리 부족으로 죽으면(`Killed`, `std::bad_alloc`, 창이 멈춤) 7절 대체안.
 - 실행 중 `watch -n 2 free -h`를 옆 터미널에 띄워 두고, 최대 사용량을 사용자에게 알려 준다.
 
-## 4. Isaac Sim 5.1 설치 (pip, CLAUDE.md와 같은 방식)
+## 4. Isaac Sim 6.2에 맞추기 (설치는 하지 않는다)
 
-- `uv venv ~/isaacsim_env --python 3.11` 다음 Isaac Sim 5.1.0을 NVIDIA pip 인덱스로 설치(정확한 명령은 Isaac Sim 5.1 공식 문서 'pip 설치'를 확인한다. 추측하지 않는다).
-- 우분투 26.04처럼 지원 밖 OS면 CLAUDE.md의 호환 라이브러리(`~/isaacsim_compat/lib`) 방법을 그대로 따른다.
-- 추가 패키지(같은 환경): `uv pip install --python ~/isaacsim_env/bin/python feetech-servo-sdk mujoco scipy`
-- 첫 실행은 `OMNI_KIT_ACCEPT_EULA=YES`를 붙인다(사용권 동의).
-- 저장소 의존성: `bash isaac/setup_gpu.sh`가 하는 일 중 '의존성'과 'URDF → USD'만 필요하면 그 단계만 돌린다(scaleup 장면은 UR10e 기본 자산을 쓴다).
+- 저장소 코드는 **Isaac Sim 5.1**에서 만들고 돌렸다. 6.2에서는 확장 이름이나 API가 바뀌었을 수 있다. `[ISAAC]` 표시가 붙은 줄이 Isaac API를 쓰는 곳이다.
+  - 특히 확인할 것: `isaacsim.core.api.World`, `isaacsim.core.prims.SingleArticulation`, `SingleXFormPrim`, `isaacsim.robot_motion.motion_generation`(Lula, `interface_config_loader`의 `"UR10e"` 설정 이름),
+    `isaacsim.storage.native.get_assets_root_path`, `isaacsim.sensors.camera.Camera`, `omni.kit.viewport.utility.get_active_viewport`, 자산 경로(`/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd` 등 5.1 경로)
+  - 오류가 나면 추측으로 바꾸지 말고, 6.2 설치 폴더의 확장 소스를 grep해서 새 이름을 찾는다(예: `grep -rn "class SingleArticulation\|def compute_inverse_kinematics" <isaac 설치 폴더>/exts | head`).
+  - 고친 줄에는 `# [ISAAC 6.2]` 주석을 붙여, 5.1 노트북과 다른 곳을 나중에 알 수 있게 한다. 5.1에서도 돌아가게 둘 다 지원할 수 있으면 `try/except ImportError`로 둔다.
+- 추가 패키지(그 Isaac 파이썬에): `pip install feetech-servo-sdk mujoco scipy`(uv 환경이면 `uv pip install --python <그 파이썬>`).
+- 첫 실행은 `OMNI_KIT_ACCEPT_EULA=YES`를 붙인다. 우분투 26.04처럼 지원 밖 OS에서 라이브러리 오류가 나면 CLAUDE.md의 호환 라이브러리 방법을 참고한다.
+- 아래 명령의 `~/isaacsim_env/bin/python`은 이 노트북에서 찾은 Isaac 6.2 파이썬(또는 `python.sh`)으로 바꿔 쓴다.
 
 ## 5. 팔 없이 먼저 시험 (fake 입력)
 
@@ -71,7 +76,7 @@ OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 ~/isaacsim_env/bin/python isaac/scal
   --live-leader fake:isaac/scaleup/sample_traj_ep54.npz --live-seconds 20 --lowmem --live-cam /World/CamClose
 ```
 - 성공 기준: GUI 창이 뜨고, UR10e가 실물 시범(54번)과 같은 타이밍으로 소켓에 다가가 꽂히며, 터미널에 `[live] 연결 N s`가 찍힌다.
-- 이 실시간 모드는 **GPU 노트북에서도 아직 Isaac으로 돌려 보지 않았다**(그 노트북 GPU가 학습 중이었다). 같은 계산을 쓰는 녹화 재생(`--replay`)은 GPU 노트북에서 성공했다(9.9 s에 연결).
+- 이 실시간 모드는 **GPU 노트북(Isaac 5.1)에서도 아직 돌려 보지 않았고, 6.2에서는 처음이다**(그 노트북 GPU가 학습 중이었다). 같은 계산을 쓰는 녹화 재생(`--replay`)은 GPU 노트북에서 성공했다(9.9 s에 연결).
   그러니 Isaac API 이름이나 시점 설정에서 오류가 나면 `[ISAAC]` 표시 줄부터 확인해서 고친다. 추측으로 여러 번 바꾸지 말고 설치 폴더의 확장 소스를 grep해서 본다.
 - `episode_live()`는 `episode_replay()`와 같은 대응식(grow, socket_basis, TAU_CAPTURED, 관절 속도와 가속 제한)을 쓴다. 두 함수를 비교하며 고친다.
 
