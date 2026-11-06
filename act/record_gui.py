@@ -401,7 +401,7 @@ button:disabled{opacity:.35;cursor:default}
 .pos{padding:10px 14px;border-radius:10px;background:#0b121a;border:2px solid #2b3a4b;cursor:pointer;font-size:16px}
 .pos.on{border-color:var(--acc);background:#241d4d}
 pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(--mut);white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
-.err{color:var(--bad)}.cams{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cams figure{margin:0;position:relative}.cams img.ref{position:absolute;left:0;top:0;opacity:.5;pointer-events:none;display:none}.refon .cams img.ref{display:block}
+.err{color:var(--bad)}.cams{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cams figure{margin:0;position:relative}.cams img.ref{position:absolute;left:0;top:0;opacity:var(--refop,.35);pointer-events:none;display:none}.refon .cams img.ref{display:block}
 .cams img{width:100%;aspect-ratio:4/3;background:#000;border-radius:10px;display:block}.cams figcaption{color:var(--mut);font-size:13px;margin-top:4px}
 @media(max-width:640px){.cams{grid-template-columns:1fr}}.mut{color:var(--mut);font-size:14px}
 </style></head><body><main>
@@ -409,7 +409,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 <div class="card"><div class="row">
  <label>종류 <select id="kind"><option value="static">정지 소켓 (25초)</option><option value="moving">흔들림 갑판 (30초)</option></select></label>
  <label>이번에 추가할 개수 <input id="n" type="number" value="10" min="1" max="100" style="width:80px"></label>
- <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <span id="drift" class="mut"></span>
+ <button class="start" id="start">녹화 시작</button> <button class="camb" id="camb">카메라 켜기</button> <label class="mut"><input type="checkbox" id="refchk"> 학습 때 화면 겹쳐 보기</label> <label class="mut">진하기 <input type="range" id="refop" min="10" max="80" value="35" style="width:90px;vertical-align:middle"></label> <span id="drift" class="mut"></span>
  <button class="delb" id="delb">마지막 에피소드 지우기</button></div>
  <p class="mut">카메라 화면은 아래에 나온다. 같은 종류로 다시 시작하면 이어서 녹화된다. 그리퍼는 덮개를 살짝만 물게 하한(6)을 걸었다.</p></div>
 <div class="card"><div class="cams"><figure><img id="img_front" alt=""><img class="ref" src="/ref/front" alt=""><figcaption>옆면 카메라 (front)</figcaption></figure>
@@ -474,6 +474,8 @@ async function driftTick(){const el=$('drift');try{const d=await (await fetch('/
  const col=d.px<8?'var(--ok)':d.px<20?'var(--warn)':'var(--bad)';
  el.innerHTML=`옆면 카메라 밀림 <b style="color:${col}">${d.px.toFixed(0)} px</b> (가로 ${d.dx.toFixed(0)}, 세로 ${d.dy.toFixed(0)})`+(d.px>=20?' : 카메라 머리를 겹쳐 보기에 맞춰 주세요':'')}catch(e){}}
 setInterval(driftTick,2000);
+{const r=$('refop');try{const v=localStorage.getItem('refop');if(v)r.value=v}catch(e){}
+ const ap=()=>{document.body.style.setProperty('--refop',r.value/100);try{localStorage.setItem('refop',r.value)}catch(e){}};r.oninput=ap;ap()}
 function pull(name){const im=$('img_'+name);const next=()=>setTimeout(()=>pull(name),100);
  const n=new Image();n.onload=()=>{im.src=n.src;next()};n.onerror=()=>setTimeout(()=>pull(name),500);n.src='/frame/'+name+'?t='+Date.now()}
 pull('front');pull('wrist');
