@@ -1,0 +1,9 @@
+{
+ "dataset": "plug_static",
+ "episode": 54,
+ "frames": 453,
+ "duration_s": 15.07,
+ "start_dist_mm": 312.5,
+ "depth_model_m": 0.031,
+ "note": "실물 시범 관절 → 기구학 → 소켓 기준(꽂힌 마지막 자세에서 정함). 정지 소켓 시범에서만 정확"
+}

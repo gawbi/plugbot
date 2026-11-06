@@ -38,11 +38,19 @@ ap.add_argument("--livery", choices=["panstar", "plain"], default="panstar",
 ap.add_argument("--max-frames", type=int, default=0, help="0보다 크면 이만큼만 렌더(구도 확인용)")
 ap.add_argument("--replay", default="", help="SO-101 시범 에피소드 폴더(data/isaac_side/episode_XXXX). 그 궤적을 UR10e로 옮겨 재생한다\n"
                 "(이종 원격조종 시각화: 리더 팔 대신 녹화된 시범)")
+ap.add_argument("--live-leader", default="", help="실시간 이종 원격조종: SO-101 리더 팔 포트(/dev/ttyACM0) 또는 fake:<npz>(팔 없이 시험).\n"
+                "GUI 창에서 UR10e가 리더 팔을 따라 움직인다(leader_source.py). Ctrl+C로 끝")
+ap.add_argument("--live-seconds", type=float, default=0, help="--live-leader 실행 시간(s). 0이면 Ctrl+C까지")
+ap.add_argument("--lowmem", action="store_true", help="램 16 GB 노트북용 가벼운 설정(창 960x540, 안티에일리어싱 끔)")
+ap.add_argument("--live-cam", default="/World/CamWide", help="--live-leader GUI 시점(/World/CamWide, /World/CamClose, /World/CamShip)")
 args = ap.parse_args()
 
 from isaacsim import SimulationApp  # noqa: E402
 
-app = SimulationApp({"headless": args.headless or args.trials > 0, "width": 1280, "height": 720})
+_cfg = {"headless": args.headless or args.trials > 0, "width": 1280, "height": 720}
+if args.lowmem:  # 시스템 램 16 GB 노트북: 창과 렌더 해상도를 줄이고, 안티에일리어싱을 끈다
+    _cfg.update({"width": 960, "height": 540, "anti_aliasing": 0, "renderer": "RaytracedLighting"})
+app = SimulationApp(_cfg)
 
 from isaacsim.core.api import World  # noqa: E402
 from isaacsim.core.prims import SingleArticulation, SingleXFormPrim  # noqa: E402
@@ -693,6 +701,77 @@ def episode_replay(ep_dir, seed, frames_dir=None):
     return t_ins is not None, t_ins, ep_meta
 
 
+def episode_live(source, seed, duration=0.0):
+    """리더 팔을 실시간으로 읽어 UR10e를 움직인다(episode_replay와 같은 대응, 같은 제한). 벽시계에 맞춰 돈다."""
+    import time as _t
+    motion = ship_motion(seed)
+    q, qd, q_goal, qd_ff, tgt, started = Q_HOME.copy(), np.zeros(6), Q_HOME.copy(), np.zeros(6), None, False
+    dt = 1.0 / args.fps
+    set_led(False)
+    hold_t, t_ins, captured = 0.0, None, None
+    t0 = _t.time()
+    print("[live] 리더 팔을 움직이세요. Ctrl+C로 끝", flush=True)
+    try:
+        while app.is_running() and (duration <= 0 or _t.time() - t0 < duration):
+            loop0 = _t.time()
+            t = loop0 - t0
+            o, R, ent, axis = socket_pose(motion, t)
+            ship.set_world_pose(position=o, orientation=Rotation.from_matrix(R).as_quat()[[3, 0, 1, 2]])  # [ISAAC]
+            rel, pin = source.read()
+            B = socket_basis(axis)
+            g = grow(np.asarray(rel))
+            if captured:
+                g, pin = np.array([0.0, 0.0, g[2]]), np.array([0.0, 0.0, -1.0])
+            z = B @ np.asarray(pin)
+            z /= np.linalg.norm(z)
+            x = np.array([0, 0, 1.0]) - np.dot([0, 0, 1.0], z) * z
+            x /= np.linalg.norm(x)
+            rot = Rotation.from_matrix(np.stack([x, np.cross(z, x), z], 1))
+            pos = ent + B @ g - z * TIP_L
+            if tgt is None:
+                tgt = (pos, rot)
+            a = 1.0 - np.exp(-dt / TAU_CAPTURED)
+            tgt = (tgt[0] + a * (pos - tgt[0]), tgt[1] * Rotation.from_rotvec(a * (tgt[1].inv() * rot).as_rotvec()))
+            qf = tgt[1].as_quat()
+            q_ik, ok = ik.compute_inverse_kinematics("tool0", tgt[0], np.array([qf[3], qf[0], qf[1], qf[2]]), warm_start=q_goal)
+            if ok:
+                q_ik = np.asarray(q_ik)
+                qd_ff = (q_ik - q_goal) / dt if started else np.zeros(6)
+                q_goal, started = q_ik, True
+            qd_cmd = np.clip(qd_ff + KP_JOINT * (q_goal - q), -QD_MAX, QD_MAX)
+            qd = qd + np.clip(qd_cmd - qd, -QDD_MAX * dt, QDD_MAX * dt)
+            q = q + qd * dt
+            p_t, R_t = fk_tool(q)
+            rel_t = p_t + R_t[:, 2] * TIP_L - ent
+            depth = -float(np.dot(rel_t, axis))
+            lat = float(np.linalg.norm(rel_t + depth * axis))
+            if depth < -0.05:
+                captured = None  # 다시 빼면 포착을 풀어 처음부터
+            elif captured is None and depth >= 0.0:
+                captured = lat < CONE_TOP_R - PIN_R
+            if t_ins is None and captured and depth >= P.depth_goal and lat < BORE_R - PIN_R + 0.002:
+                hold_t += dt
+                if hold_t >= P.hold:
+                    t_ins = t
+                    set_led(True)
+                    print(f"[live] 연결 {t:.1f} s", flush=True)
+            elif t_ins is None:
+                hold_t = 0.0
+            if t_ins is not None and depth < 0.0:
+                t_ins, hold_t = None, 0.0  # 뺐다
+                set_led(False)
+            update_sea(t)
+            update_cable(*cable_end(p_t, R_t))
+            robot.set_joint_positions(q, joint_indices=np.array(dof))  # [ISAAC] 운동학 재생
+            world.step(render=True)  # [ISAAC]
+            rest = dt - (_t.time() - loop0)
+            if rest > 0:
+                _t.sleep(rest)
+    except KeyboardInterrupt:
+        pass
+    return t_ins
+
+
 def save_frames(d, k, t, phase):
     from PIL import Image
     for name, c in cam_objs.items():
@@ -704,6 +783,22 @@ def save_frames(d, k, t, phase):
 
 
 attach_plug()
+if args.live_leader:
+    sys.path.insert(0, str(HERE))
+    from leader_source import LeaderSource  # noqa: E402
+    try:
+        from omni.kit.viewport.utility import get_active_viewport  # [ISAAC]
+        get_active_viewport().camera_path = args.live_cam
+    except Exception as e:  # 시점 바꾸기 실패해도 계속(기본 시점)
+        print("[live] 시점 설정 실패:", e)
+    robot.set_joint_positions(Q_HOME, joint_indices=np.array(dof))
+    for _ in range(10):
+        world.step(render=True)  # [ISAAC]
+    src = LeaderSource(args.live_leader)
+    episode_live(src, args.seed, args.live_seconds)
+    src.close()
+    app.close()
+    sys.exit(0)
 if args.trials:
     rows = []
     for s in range(args.trials):
