@@ -175,6 +175,7 @@ def ckpts():
 class Roll(BaseModel):
     ckpt: str
     duration: float = 20.0
+    replan: int = 100  # 몇 스텝마다 다시 예측할지(100 = 학습 설정 그대로 3.3 s, 1 = 매 스텝 예측을 겹쳐 평균)
 
 
 @app.post("/rollout/start")
@@ -197,6 +198,11 @@ def rollout_start(req: Roll):
            f"--policy.path={path}", "--robot.type=so101_follower", f"--robot.port={env_default('F_PORT')}",
            f"--robot.id={env_default('F_ID')}", f"--robot.cameras={cams}", "--task=Insert the plug into the socket",
            f"--duration={req.duration}", "--device=cuda", "--display_data=false"]
+    if req.replan < 100:
+        # 출발 때 한 번 예측한 3.3 s를 눈 감고 따라가면 소켓 가까이에서 위치를 못 고친다(2026-11-06 왼쪽에서 가운데를 찌름)
+        cmd.append(f"--policy.n_action_steps={max(1, req.replan)}")
+        if req.replan <= 1:
+            cmd.append("--policy.temporal_ensemble_coeff=0.01")
     master, slave = pty.openpty()
     env = dict(os.environ, XDG_SESSION_TYPE="wayland", PYTHONUNBUFFERED="1")
     proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, cwd=ACT.parent, env=env, start_new_session=True)
@@ -385,6 +391,7 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
  <div class="err" id="err"></div></div>
 <div class="card"><div class="mut" style="margin-bottom:8px">로봇 혼자 꽂기 (학습한 정책 시험, 녹화 안 함)</div>
  <div class="row"><label>체크포인트 <select id="ckpt"></select></label>
+ <label>다시 계획 <select id="replan"><option value="100">3.3초마다(학습 그대로)</option><option value="30">1초마다</option><option value="10" selected>0.33초마다</option><option value="1">매 순간(평균)</option></select></label>
  <label>시간(초) <input id="rdur" type="number" value="20" min="5" max="120" style="width:70px"></label>
  <button class="start" id="rstart">로봇 실행</button><button class="quit" id="rstop">멈추기</button></div>
  <p class="mut">실행 전: 리더 팔은 그대로 두고(이때는 리더를 안 씀), 팔로워를 홈 근처에, 소켓을 표시한 자리에. 사람 손은 부스 밖.
@@ -400,7 +407,7 @@ async function loadCkpts(){const l=await (await fetch('/ckpts')).json();const se
  l.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o)});if(cur&&l.includes(cur))sel.value=cur}
 loadCkpts();setInterval(loadCkpts,30000);
 $('rstart').onclick=()=>{if(!$('ckpt').value){alert('체크포인트가 아직 없습니다');return}
- if(confirm(`${$('ckpt').value} 로 ${$('rdur').value}초 동안 로봇을 움직입니다. 손을 부스 밖으로!`))post('/rollout/start',{ckpt:$('ckpt').value,duration:+$('rdur').value})};
+ if(confirm(`${$('ckpt').value} 로 ${$('rdur').value}초 동안 로봇을 움직입니다. 손을 부스 밖으로!`))post('/rollout/start',{ckpt:$('ckpt').value,duration:+$('rdur').value,replan:+$('replan').value})};
 $('rstop').onclick=()=>post('/rollout/stop');
 $('camb').onclick=()=>post('/camera/'+(st&&st.cam_on?'off':'on'));
 $('next').onclick=()=>post('/key/n');$('redo').onclick=()=>post('/key/r');$('quit').onclick=()=>{if(confirm('녹화를 끝낼까요? (지금 에피소드는 저장되지 않을 수 있음)'))post('/key/q')};
