@@ -563,7 +563,11 @@ pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(
 </main><script>
 const $=id=>document.getElementById(id);let st=null,lastPos=null;
 async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):null});return r.json()}
-$('start').onclick=()=>post('/start',{kind:$('kind').value,n:+$('n').value,position:lastPos||'가운데'});
+$('start').onclick=()=>{const k=$('kind').value;
+ // 2026-11-06: 갑판을 흔들면서 종류가 '정지 소켓'인 채로 10개를 찍어 plug_static에 섞였다. 맞지 않으면 묻는다
+ if(st&&st.shaker&&k==='static'&&!confirm('갑판이 흔들리는 중인데 종류가 [정지 소켓]입니다. 그대로 정지 데이터에 녹화할까요?\n(흔들림이면 취소 후 종류를 [흔들림 갑판]으로)'))return;
+ if(st&&!st.shaker&&k==='moving'&&!confirm('종류가 [흔들림 갑판]인데 갑판이 멈춰 있습니다. 그대로 녹화할까요?'))return;
+ post('/start',{kind:k,n:+$('n').value,position:lastPos||'가운데'})};
 $('delb').onclick=async()=>{if(!st||st.saved<1)return;if(!confirm(`${st.saved-1}번(마지막) 에피소드를 지울까요? 원본은 백업됩니다.`))return;
  $('delb').disabled=true;$('delb').textContent='지우는 중...';const r=await post('/delete_last');alert(r.ok?`${r.deleted}번을 지웠습니다.`:'실패: '+r.msg);$('delb').textContent='마지막 에피소드 지우기'};
 async function loadCkpts(){const l=await (await fetch('/ckpts')).json();const sel=$('ckpt');const cur=sel.value;sel.innerHTML='';
