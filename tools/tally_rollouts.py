@@ -44,7 +44,7 @@ if a.mark:
 tab = defaultdict(lambda: {"static": [0, 0], "moving": [0, 0]})
 for d in sorted(RUNS.glob("*/result.json")):
     r = json.loads(d.read_text())
-    ck = "/".join(Path(r["policy"]).parts[-4:-2]) if r.get("policy") else "?"  # act_real_v4/080000
+    ck = "/".join(Path(r["policy"]).parts[-4::2]) if r.get("policy") else "?"  # act_real_v4/080000
     c = tab[ck][r["cond"]]
     c[1] += 1
     c[0] += int(r["ok"])

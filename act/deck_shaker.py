@@ -110,6 +110,26 @@ def keys():
         print("mode", state["mode"], " amp", state["amp"], "mm  period", state["per"], "s")
 
 
+LIVE = "/dev/shm/plugbot_shaker.json"  # 부스 화면(act/booth.py)이 읽는다: 명령 높이와 서보가 실제로 간 위치로 계산한 높이
+
+
+def live(p, t, h_cmd):
+    """서보 현재 위치(주소 56)를 읽어 소켓 높이(mm)로 바꿔 적는다. 실패해도 흔들기는 계속한다."""
+    try:
+        raw, res, _ = k.read2ByteTxRx(p, 1, 56)
+        meas = None
+        if res == 0:
+            deg = (raw - CENTER) / TICK
+            meas = HORN * math.sin(math.radians(deg)) * SOCKET / LEVER
+        tmp = LIVE + ".tmp"
+        with open(tmp, "w") as f:
+            f.write('{"wall": %.3f, "t": %.3f, "cmd_mm": %.2f, "meas_mm": %s, "mode": "%s", "amp": %.1f, "per": %.2f}'
+                    % (time.time(), t, h_cmd, "null" if meas is None else "%.2f" % meas, state["mode"], state["amp"], state["per"]))
+        os.replace(tmp, LIVE)
+    except Exception:
+        pass
+
+
 def main():
     p = find_port()
     try:
@@ -132,6 +152,7 @@ def main():
             pos = int(CENTER + deg * TICK)
             p.clearPort()
             k.write2ByteTxRx(p, 1, 42, pos)
+            live(p, t, h)
             time.sleep(0.02)
     except KeyboardInterrupt:
         print("\nCtrl+C")
