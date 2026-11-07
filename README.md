@@ -273,3 +273,6 @@ outputs/      실험 결과(json)와 그림
 
 <sub>참고: Cavotec 전기선박 충전(cavotec.com), Zinus 자율 충전 시스템(businessnorway.com), Megawatt Charging System(IEC TS 63379),
 UiT 해상 충전 기술 블로그(site.uit.no/ladeteknologi). SO-101 모델: MuJoCo Menagerie(Apache 2.0), TheRobotStudio SO-ARM100.</sub>
+
+데이터 출처, 이용 조건, 제3자 소프트웨어와 자산의 라이선스: [docs/data_sources.md](docs/data_sources.md).
+본선(2026-11-08~10, 선상) 기록: 승선 시점 상태 [docs/team/본선_기준선_20261108.md](docs/team/본선_기준선_20261108.md), 개발 일지 [docs/team/본선_개발일지.md](docs/team/본선_개발일지.md), 자동 현황 `python3 tools/onboard_report.py`.
