@@ -120,7 +120,7 @@ def delta(base):
              "static_ci": wilson(*v["static"]), "moving_ci": wilson(*v["moving"])} for (d, k), v in sorted(tally.items())]
     outs = [{"file": k, "time": v} for k, v in now["outputs"].items() if k not in base["outputs"]]
     tr = [t for t in now["troubleshooting"] if t not in base["troubleshooting"]]
-    return {"generated": now["taken"], "baseline": {"taken": base["taken"], "git_head": base["git_head"], "git_tag": base["git_tag"]},
+    return {"generated": now["taken"], "baseline": {"taken": base["taken"], "git_head": git("rev-parse", "--short", ref), "git_tag": ref},
             "git_head": now["git_head"], "commits": [{"time": t, "msg": m} for t, m in commits], "datasets": ds, "checkpoints": ck,
             "rollouts": rows, "rollouts_n": len(new_runs), "outputs": outs, "troubleshooting": tr}
 
