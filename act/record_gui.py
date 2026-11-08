@@ -559,22 +559,22 @@ def index():
 PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>PlugBot 시범 녹화</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--bg:#0f1720;--card:#18222e;--fg:#e8eef5;--mut:#93a4b8;--acc:#7c5cff;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444}
+:root{--bg:#0f1720;--card:#18222e;--fg:#e8eef5;--mut:#93a4b8;--acc:#d9480f;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:'Noto Sans KR',system-ui,sans-serif}
 main{max-width:1200px;margin:0 auto;padding:18px}
-h1{font-size:22px;margin:0 0 12px}.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px}
+h1{font-size:22px;margin:0 0 12px}.card{background:var(--card);border-radius:6px;padding:16px;margin-bottom:14px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}label{color:var(--mut);font-size:14px}
-select,input{background:#0b121a;color:var(--fg);border:1px solid #2b3a4b;border-radius:8px;padding:8px;font-size:16px}
-button{border:0;border-radius:12px;padding:14px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff}
+select,input{background:#0b121a;color:var(--fg);border:1px solid #2b3a4b;border-radius:4px;padding:8px;font-size:16px}
+button{border:0;border-radius:6px;padding:14px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff}
 .start{background:var(--acc)}.camb{background:#2b3a4b}.camb.on{background:#0e7490}.delb{background:#7f1d1d;font-size:15px}.next{background:var(--ok);flex:2}.redo{background:var(--warn);flex:1}.quit{background:var(--bad);flex:1}
 button:disabled{opacity:.35;cursor:default}
 .phase{font-size:34px;font-weight:800}.big{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums}
 .bar{height:12px;background:#0b121a;border-radius:6px;overflow:hidden}.bar>div{height:100%;background:var(--acc);transition:width .2s}
-.pos{padding:10px 14px;border-radius:10px;background:#0b121a;border:2px solid #2b3a4b;cursor:pointer;font-size:16px}
-.pos.on{border-color:var(--acc);background:#241d4d}
-pre{background:#0b121a;border-radius:10px;padding:10px;font-size:12px;color:var(--mut);white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
+.pos{padding:10px 14px;border-radius:5px;background:#0b121a;border:2px solid #2b3a4b;cursor:pointer;font-size:16px}
+.pos.on{border-color:var(--acc);background:#2b1a12}
+pre{background:#0b121a;border-radius:5px;padding:10px;font-size:12px;color:var(--mut);white-space:pre-wrap;max-height:220px;overflow:auto;margin:0}
 .err{color:var(--bad)}.cams{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cams figure{margin:0;position:relative}.cams img.ref{position:absolute;left:0;top:0;opacity:var(--refop,.35);pointer-events:none;display:none}.refon .cams img.ref{display:block}
-.cams img{width:100%;aspect-ratio:4/3;background:#000;border-radius:10px;display:block}.cams figcaption{color:var(--mut);font-size:13px;margin-top:4px}
+.cams img{width:100%;aspect-ratio:4/3;background:#000;border-radius:5px;display:block}.cams figcaption{color:var(--mut);font-size:13px;margin-top:4px}
 @media(max-width:640px){.cams{grid-template-columns:1fr}}.mut{color:var(--mut);font-size:14px}
 </style></head><body><main>
 <h1>PlugBot 시범 녹화 (ACT)</h1>
