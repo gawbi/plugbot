@@ -345,7 +345,7 @@ def grab():
     return out
 
 
-_e = np.load(Path(a.src) / "ep_054.npz")
+_e = np.load(ROOT / "data/twin_src/ep_054.npz")  # 판과 카메라 기준은 늘 원본 54번
 for _ in range(3):
     show(_e["q"][-1])
 setup_wrist()
