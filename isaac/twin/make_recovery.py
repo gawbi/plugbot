@@ -1,7 +1,7 @@
 """포토박스 트윈 회복 시범 합성: 실물 시범 궤적에 '한 번 빗나감 → 뒤로 빼기 → 바로잡고 다시 꽂기'를 넣는다.
 
 사람이 실제로 한 회복 동작이 아니다(합성). 실물 시범 궤적(data/twin_src/ep_XXX.npz)을 바탕으로:
-  1) 접근 구간(소켓 앞 6 cm부터)에 옆으로 6~15 mm 빗나감을 서서히 넣어, 핀이 소켓 앞면(흰 링)에 닿아 멈춘다
+  1) 접근 구간(소켓 앞 6 cm부터)에 옆으로 8~20 mm 빗나감(절반은 로봇 오른쪽)을 서서히 넣어, 핀이 소켓 앞면(흰 링)에 닿아 멈춘다
   2) 0.3~0.5초 밀고 있다가 3 cm 뒤로 뺀다
   3) 관절 공간에서 실물 궤적의 '소켓 앞 3 cm' 자세로 옮겨 가고, 거기부터는 실물 궤적 그대로 꽂는다
 관절값은 URDF 순기구학(numpy)과 감쇠 최소제곱 역기구학(핀 끝 위치 + 그리퍼 자세 유지)으로 푼다.
@@ -145,15 +145,23 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
     k_r = int(back[-1]) if len(back) else k0
     if k_hit - k0 < 8:
         print(f.stem, "접근 구간이 너무 짧음, 건너뜀"); continue
-    # 빗나감: 앞면에 닿는 순간 핀 중심이 소켓 축에서 6~15 mm 옆(구멍 반지름 14.5 mm, 핀 13.75 mm라 1 mm만 어긋나도 안 들어간다)
+    # 빗나감: 앞면에 닿는 순간 핀 중심이 소켓 축에서 8~20 mm 옆(구멍 반지름 14.5 mm, 핀 13.75 mm라 1 mm만 어긋나도 안 들어간다)
+    # 절반은 로봇 기준 오른쪽(-y, ±25도). 왼쪽 앞 카메라의 시선과 거의 같은 방향이라 화면에서 잘 안 보이는 빗나감(실물 v2 시험에서 나온 실패)
+    # 나머지 절반은 실물이 이미 옆으로 와 있던 쪽(±60도), 없으면 무작위
+    right = np.array([0.0, -1.0, 0.0]) - d * (-d[1])
+    right /= np.linalg.norm(right)
     lat_hit = (P[k_hit] - E) - s[k_hit] * d
-    u = np.cross(d, rng.normal(size=3)); u /= np.linalg.norm(u)
-    if np.linalg.norm(lat_hit) > 0.003:  # 실물이 이미 옆으로 와 있던 쪽으로 더 빗나가게(±60도)
-        v = lat_hit / np.linalg.norm(lat_hit)
-        w = np.cross(d, v)
-        ang = rng.uniform(-np.pi / 3, np.pi / 3)
-        u = np.cos(ang) * v + np.sin(ang) * w
-    mag = float(rng.uniform(0.006, 0.015))
+    if rng.random() < 0.5:
+        side = "right"
+        v, ang = right, rng.uniform(-np.pi * 25 / 180, np.pi * 25 / 180)
+    elif np.linalg.norm(lat_hit) > 0.003:
+        side = "real"
+        v, ang = lat_hit / np.linalg.norm(lat_hit), rng.uniform(-np.pi / 3, np.pi / 3)
+    else:
+        side = "rand"
+        v = np.cross(d, rng.normal(size=3)); v /= np.linalg.norm(v); ang = 0.0
+    u = np.cos(ang) * v + np.sin(ang) * np.cross(d, v)
+    mag = float(rng.uniform(0.008, 0.020))
     Lh = u * mag  # 앞면에서의 옆 어긋남(축 기준 절대값)
     # 1) 빗나간 접근: 실물 접근 구간 + 옆으로 delta(앞 60%에서 서서히), 깊이는 앞면에서 멈춤
     syn, n_ramp = [], max(1, int(0.6 * (k_hit - k0)))
@@ -203,7 +211,7 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
     T = len(q_new)
     np.savez(out / f"ep_{1000 + int(f.stem[3:]):04d}.npz", state=st_new, action=ac_new, q=q_new,
              ts=(np.arange(T) / FPS).astype(np.float32), task=e["task"])
-    rec = dict(src=f.stem, k0=k0, k_hit=k_hit, k_r=k_r, miss_mm=round(mag * 1000, 1), lag=L, frames=T, added=T - len(q),
+    rec = dict(src=f.stem, side=side, k0=k0, k_hit=k_hit, k_r=k_r, miss_mm=round(mag * 1000, 1), lag=L, frames=T, added=T - len(q),
                ik_err_mm=round(float(err) * 1000, 2))
     summary.append(rec)
     print(rec, flush=True)
