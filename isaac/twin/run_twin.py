@@ -22,6 +22,7 @@ ap.add_argument("--preview", type=int, default=-1, help="이 에피소드의 처
 ap.add_argument("--render", action="store_true")
 ap.add_argument("--rand", action="store_true")
 ap.add_argument("--limit", type=int, default=0)
+ap.add_argument("--variants", default="n,h", help="n: 보통, h: 가혹 조건")
 ap.add_argument("--src", default=str(ROOT / "data/twin_src"))
 ap.add_argument("--out", default=str(ROOT / "data/twin_render"))
 ap.add_argument("--cam", default="", help="앞 카메라 eye와 target 9개 숫자 ex,ey,ez,tx,ty,tz,fov,plate_z,panel_dx")
@@ -182,12 +183,13 @@ def cam_lens(prim, vfov):
 
 
 # 손목 카메라: gripper_link 아래, 실물 카메라 마운트 자리(URDF wrist_camera_link 위치)에서 턱 방향(-z)을 본다. 위치는 첫 자세 뒤에 정한다
-WRIST = [(8, 62, 0)]  # (아래로 기울기 도, 세로 화각, 돌림 도)
+ap2 = __import__("os").environ.get("TWIN_WRIST", "")  # 손목 카메라 후보 "tilt,vfov,z,h;..." (맞출 때만)
+WRIST = [tuple(map(float, c.split(","))) for c in ap2.split(";")] if ap2 else [(10, 44, -0.05, 0.058)]  # (아래로 기울기 도, 세로 화각, 카메라 z, 축에서 높이)
 wcams = []
-for k, (tilt, vf, roll) in enumerate(WRIST):
+for k, (tilt, vf, cz, ch) in enumerate(WRIST):
     c = UsdGeom.Camera.Define(stage, glink.GetPath().AppendChild(f"WristCam{k}"))
     cam_lens(c.GetPrim(), vf)
-    wcams.append((c, tilt, roll))
+    wcams.append((c, tilt, (cz, ch)))
 
 root = next(p.GetPath().pathString for p in stage.Traverse()
             if p.GetPath().pathString.startswith("/World/SO101") and p.HasAPI(UsdPhysics.ArticulationRootAPI))
@@ -209,14 +211,22 @@ def world_tf(prim):
     return UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
 
 
-def setup_wrist():
+def setup_wrist(jit=None):
     """실물 손목 카메라: 덮개 결합 링 위쪽(꽂힌 자세에서 하늘 방향) 약 6 cm, 링 뒤에서 턱 방향(-z)을 본다. 그리퍼에 고정"""
-    up = np.array(world_tf(glink).GetInverse().TransformDir(Gf.Vec3d(0, 0, 1)))
-    up[2] = 0.0
-    up /= np.linalg.norm(up)
-    t = np.array([PIN_TIP[0], PIN_TIP[1], -0.05]) + up * 0.058
+    if "up" not in SOCK:  # 카메라는 그리퍼에 고정: 위쪽은 기준 자세(에피소드 54 끝)에서 한 번만 정한다
+        up = np.array(world_tf(glink).GetInverse().TransformDir(Gf.Vec3d(0, 0, 1)))
+        up[2] = 0.0
+        SOCK["up"] = up / np.linalg.norm(up)
+    up = SOCK["up"]
+    pass
     yaw = np.degrees(np.arctan2(-up[0], up[1]))
-    for k, (c, tilt, roll) in enumerate(wcams):
+    for k, (c, tilt, (cz, ch)) in enumerate(wcams):
+        t = np.array([PIN_TIP[0], PIN_TIP[1], cz]) + up * ch
+        roll = 0.0
+        if jit is not None:  # 가혹 조건: 위치 ±5 mm, 기울기와 돌림 ±3도, 화각 ±5도
+            t = t + jit[:3]
+            tilt, roll = tilt + jit[3], jit[4]
+            cam_lens(c.GetPrim(), WRIST[k][1] + jit[5])
         r = Gf.Rotation(Gf.Vec3d(1, 0, 0), float(-tilt)) * Gf.Rotation(Gf.Vec3d(0, 0, 1), float(yaw + roll))
         qq = r.GetQuat()
         cams["wrist" if k == 0 else f"wv{k}"].set_local_pose(translation=t, orientation=np.array([qq.GetReal(), *qq.GetImaginary()]), camera_axes="usd")
@@ -256,15 +266,56 @@ def front_from_socket(fc, jit=None):
               (e[0] + fc["tx"] + j[3], e[1] + fc["ty"] + j[4], e[2] + fc["tz"] + j[5]), fc["fov"] + j[6])
 
 
-def randomize(rng):
+side = UsdLux.SphereLight.Define(stage, "/World/Side")  # 가혹: 옆빛, 야간 점광원
+side.CreateRadiusAttr(0.02)
+side.CreateIntensityAttr(0.0)
+side_x = UsdGeom.Xformable(side).AddTranslateOp()
+HARSH = ["dark", "bright", "side", "warm", "cool", "night", "fabric", "foil"]
+
+
+def randomize(rng, harsh=False):
+    """보통: 조명, 벽 밝기, 팔 색조, 앞 카메라를 조금. 가혹: 아래 모드 1~2개 + 카메라를 크게 흔든다. 돌려주는 값은 고른 모드"""
     dome.GetIntensityAttr().Set(float(rng.uniform(150, 450)))
     rect.GetIntensityAttr().Set(float(rng.uniform(9000, 20000)))
     rect.CreateColorAttr(Gf.Vec3f(*rng.uniform(0.9, 1.0, 3)))
+    side.GetIntensityAttr().Set(0.0)
     g = rng.uniform(0.012, 0.035)
-    M["paper"][1].GetInput("diffuseColor").Set(Gf.Vec3f(g, g, g * rng.uniform(1.0, 1.06)))
+    sh = M["paper"][1]
+    sh.GetInput("diffuseColor").Set(Gf.Vec3f(g, g, g * rng.uniform(1.0, 1.06)))
+    sh.GetInput("metallic").Set(0.0)
+    sh.GetInput("roughness").Set(0.95)
     pu = np.array([0.20, 0.06, 0.58]) * rng.uniform(0.85, 1.15, 3)
     M["purple"][1].GetInput("diffuseColor").Set(Gf.Vec3f(*np.clip(pu, 0, 1)))
-    front_from_socket(FC, np.r_[rng.normal(0, 0.008, 3), rng.normal(0, 0.015, 3), rng.uniform(-3, 3)])
+    modes = []
+    if harsh:
+        modes = list(rng.choice(HARSH, size=int(rng.integers(1, 3)), replace=False))
+        e = SOCK["ent"]
+        for m in modes:
+            if m == "dark":
+                dome.GetIntensityAttr().Set(float(rng.uniform(20, 70))); rect.GetIntensityAttr().Set(float(rng.uniform(1500, 3500)))
+            elif m == "bright":
+                dome.GetIntensityAttr().Set(float(rng.uniform(900, 1600))); rect.GetIntensityAttr().Set(float(rng.uniform(35000, 60000)))
+            elif m == "side":
+                side_x.Set(Gf.Vec3d(float(e[0] - 0.1), float(e[1] + rng.choice([-0.25, 0.25])), float(e[2] + 0.1)))
+                side.GetIntensityAttr().Set(float(rng.uniform(30000, 80000)))
+            elif m == "warm":
+                rect.CreateColorAttr(Gf.Vec3f(1.0, 0.78, 0.55))
+            elif m == "cool":
+                rect.CreateColorAttr(Gf.Vec3f(0.7, 0.82, 1.0))
+            elif m == "night":
+                dome.GetIntensityAttr().Set(5.0); rect.GetIntensityAttr().Set(0.0)
+                side_x.Set(Gf.Vec3d(float(e[0] - 0.25), float(e[1]), float(e[2] + 0.25)))
+                side.GetIntensityAttr().Set(float(rng.uniform(20000, 50000)))
+            elif m == "fabric":
+                v = rng.uniform(0.25, 0.4); sh.GetInput("diffuseColor").Set(Gf.Vec3f(v, v, v))
+            elif m == "foil":
+                sh.GetInput("diffuseColor").Set(Gf.Vec3f(0.6, 0.6, 0.62)); sh.GetInput("metallic").Set(0.9); sh.GetInput("roughness").Set(0.35)
+        front_from_socket(FC, np.r_[rng.uniform(-0.02, 0.02, 3), rng.uniform(-0.04, 0.04, 3), rng.uniform(-5, 5)])
+        setup_wrist(np.r_[rng.uniform(-0.005, 0.005, 3), rng.uniform(-3, 3, 2), rng.uniform(-5, 5)])
+    else:
+        front_from_socket(FC, np.r_[rng.normal(0, 0.008, 3), rng.normal(0, 0.015, 3), rng.uniform(-3, 3)])
+        setup_wrist(np.r_[rng.normal(0, 0.0015, 3), rng.normal(0, 1.0, 2), rng.uniform(-1.5, 1.5)])
+    return modes
 
 
 def show(q, renders=1):
@@ -327,19 +378,18 @@ elif a.render:
     files = sorted(src.glob("ep_*.npz"))[: a.limit or None]
     import time
     t0 = time.time()
-    for n, f in enumerate(files):
-        if (out / f"{f.stem}_wrist.mp4").exists():
+    jobs = [(f, v) for f in files for v in a.variants.split(",")]
+    for n, (f, v) in enumerate(jobs):
+        stem = f"{f.stem}_{v}"
+        if (out / f"{stem}_wrist.mp4").exists():
             continue
         e = np.load(f)
-        rng = np.random.default_rng(int(f.stem[3:]))
+        rng = np.random.default_rng(int(f.stem[3:]) * 10 + (1 if v == "h" else 0))
         socket_from_end(e["q"][-1])
-        if a.rand:
-            randomize(rng)
-        else:
-            front_from_socket(FC)
+        modes = randomize(rng, harsh=(v == "h")) if a.rand else (front_from_socket(FC) or [])
         for _ in range(3):
             show(e["q"][0])
-        ws = {k: iio.get_writer(out / f"{f.stem}_{k}.mp4", fps=30, codec="libx264", quality=8, macro_block_size=8) for k in cams}
+        ws = {k: iio.get_writer(out / f"{stem}_{k}.mp4", fps=30, codec="libx264", quality=8, macro_block_size=8) for k in cams}
         for q in e["q"]:
             show(q)
             g = grab()
@@ -347,5 +397,6 @@ elif a.render:
                 ws[k].append_data(im if im is not None else np.zeros((H, W, 3), np.uint8))
         for w in ws.values():
             w.close()
-        print(f"{n + 1}/{len(files)} {f.stem} {len(e['q'])}장면, 누적 {time.time() - t0:.0f}s", flush=True)
+        (out / f"{stem}.json").write_text(json.dumps({"variant": v, "modes": [str(m) for m in modes]}))
+        print(f"{n + 1}/{len(jobs)} {stem} {len(e['q'])}장면 {modes}, 누적 {time.time() - t0:.0f}s", flush=True)
 app.close()

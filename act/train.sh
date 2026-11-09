@@ -22,7 +22,7 @@ if [ -n "${FINETUNE:-}" ]; then
 fi
 case "$MODE" in
   smoke) ARGS=(--steps=2000 --save_freq=1000) ;;
-  full) ARGS=(--steps="${STEPS:-$STEPS_DEFAULT}" --save_freq="${SAVE_FREQ:-10000}" --num_workers=4 --dataset.image_transforms.enable=true) ;;
+  full) ARGS=(--steps="${STEPS:-$STEPS_DEFAULT}" --save_freq="${SAVE_FREQ:-10000}" --num_workers="${NUM_WORKERS:-4}" --dataset.image_transforms.enable=true) ;;
   *) echo "smoke 또는 full"; exit 1 ;;
 esac
 [ -e "$OUTD" ] && { echo "$OUTD 가 이미 있다. 다른 이름을 주거나 RESUME=1"; exit 1; }
