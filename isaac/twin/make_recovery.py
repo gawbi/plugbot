@@ -1,9 +1,9 @@
 """포토박스 트윈 회복 시범 합성: 실물 시범 궤적에 '한 번 빗나감 → 뒤로 빼기 → 바로잡고 다시 꽂기'를 넣는다.
 
 사람이 실제로 한 회복 동작이 아니다(합성). 실물 시범 궤적(data/twin_src/ep_XXX.npz)을 바탕으로:
-  1) 접근 구간(소켓 앞 6 cm부터)에 옆으로 8~20 mm 빗나감(절반은 로봇 오른쪽)을 서서히 넣어, 핀이 소켓 앞면(흰 링)에 닿아 멈춘다
-  2) 0.3~0.5초 밀고 있다가 3 cm 뒤로 뺀다
-  3) 관절 공간에서 실물 궤적의 '소켓 앞 3 cm' 자세로 옮겨 가고, 거기부터는 실물 궤적 그대로 꽂는다
+  1) 접근 구간(소켓 앞 6 cm부터)에 옆으로 2~7 mm(번에 걸림) 또는 8~20 mm 빗나감(절반은 로봇 오른쪽)을 서서히 넣어, 핀이 소켓 앞면(흰 링)에 닿아 멈춘다
+  2) 0.3~0.5초 밀고 있다가 뒤로 뺀다(작은 빗나감 1.2~2 cm, 큰 빗나감 3 cm)
+  3) 관절 공간에서 실물 궤적의 '소켓 앞 그만큼' 자세로 옮겨 가고, 거기부터는 실물 궤적 그대로 꽂는다
 관절값은 URDF 순기구학(numpy)과 감쇠 최소제곱 역기구학(핀 끝 위치 + 그리퍼 자세 유지)으로 푼다.
 상태는 관절값을 LeRobot 눈금으로 되돌린 값, 동작은 실물 시범의 '동작이 상태보다 L장면 앞서고 b만큼 더 민다' 관계로 만든다.
 소켓 자리는 run_twin.py가 마지막 장면(실물 꽂힌 자세)으로 정하므로 원래 에피소드와 같다.
@@ -141,8 +141,6 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
     k_hit = int(hit[0])
     before = np.nonzero(s[:k_hit] < -0.06)[0]
     k0 = int(before[-1]) if len(before) else 0
-    back = np.nonzero(s[:k_hit] < -0.03)[0]
-    k_r = int(back[-1]) if len(back) else k0
     if k_hit - k0 < 8:
         print(f.stem, "접근 구간이 너무 짧음, 건너뜀"); continue
     # 빗나감: 앞면에 닿는 순간 핀 중심이 소켓 축에서 8~20 mm 옆(구멍 반지름 14.5 mm, 핀 13.75 mm라 1 mm만 어긋나도 안 들어간다)
@@ -161,7 +159,11 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
         side = "rand"
         v = np.cross(d, rng.normal(size=3)); v /= np.linalg.norm(v); ang = 0.0
     u = np.cos(ang) * v + np.sin(ang) * np.cross(d, v)
-    mag = float(rng.uniform(0.008, 0.020))
+    small = rng.random() < 0.5  # 절반은 번(구멍 테두리)에 걸리는 작은 빗나감(실물 v2 12500 시험의 실패)
+    mag = float(rng.uniform(0.002, 0.007) if small else rng.uniform(0.008, 0.020))
+    rb = float(rng.uniform(0.012, 0.02) if small else 0.03)  # 뒤로 빼는 거리
+    back = np.nonzero(s[:k_hit] < -rb)[0]
+    k_r = int(back[-1]) if len(back) else k0
     Lh = u * mag  # 앞면에서의 옆 어긋남(축 기준 절대값)
     # 1) 빗나간 접근: 실물 접근 구간 + 옆으로 delta(앞 60%에서 서서히), 깊이는 앞면에서 멈춤
     syn, n_ramp = [], max(1, int(0.6 * (k_hit - k0)))
@@ -180,9 +182,9 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
         qc, _ = ik(qc, p_hit + rng.normal(0, 0.0004, 3), R_hit)
         syn.append(qc.copy())
     # 3) 3 cm 뒤로 빼기
-    n_back = int(rng.integers(16, 25))
+    n_back = int(rng.integers(10, 16) if small else rng.integers(16, 25))
     for i in range(1, n_back + 1):
-        qc, _ = ik(qc, p_hit - d * 0.03 * smooth(i / n_back), R_hit)
+        qc, _ = ik(qc, p_hit - d * rb * smooth(i / n_back), R_hit)
         syn.append(qc.copy())
     # 4) 잠깐 멈췄다가 관절 공간에서 실물의 '앞 3 cm' 자세로
     syn += [qc.copy()] * int(rng.integers(3, 8))
@@ -211,7 +213,7 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
     T = len(q_new)
     np.savez(out / f"ep_{1000 + int(f.stem[3:]):04d}.npz", state=st_new, action=ac_new, q=q_new,
              ts=(np.arange(T) / FPS).astype(np.float32), task=e["task"])
-    rec = dict(src=f.stem, side=side, k0=k0, k_hit=k_hit, k_r=k_r, miss_mm=round(mag * 1000, 1), lag=L, frames=T, added=T - len(q),
+    rec = dict(src=f.stem, side=side, k0=k0, k_hit=k_hit, k_r=k_r, miss_mm=round(mag * 1000, 1), back_mm=round(rb * 1000), lag=L, frames=T, added=T - len(q),
                ik_err_mm=round(float(err) * 1000, 2))
     summary.append(rec)
     print(rec, flush=True)

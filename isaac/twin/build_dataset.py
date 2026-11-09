@@ -7,6 +7,7 @@
 가혹 조건 후처리(--aug): 가혹 판은 1~3가지, 보통 판은 30% 확률로 1가지.
   blur 초점 흐림, motion 흔들림 번짐, noise 센서 노이즈, jpeg 압축 깨짐, flicker 노출 출렁임,
   fog 안개(대비 저하), drops 렌즈 물방울, latency 화면이 관절보다 1~3장면 늦음(실물 카메라 지연 흉내)
+  shake 카메라 흔들림(가혹 판 60%, 보통 판 25%. 2~6 Hz, 3~12 px, 0.3~1.5도, 손목은 1.5배)
 기록: <데이터셋>/meta/twin_aug.json (에피소드마다 판, Isaac 조명/재질 모드, 후처리)
 실행: ~/lerobot_env/bin/python isaac/twin/build_dataset.py --render data/twin_render2 --repo plug_twin_v2 --aug
 """
@@ -32,6 +33,7 @@ ap.add_argument("--seed", type=int, default=1000, help="후처리 무작위 시�
 a = ap.parse_args()
 
 EFFECTS = ["blur", "motion", "noise", "jpeg", "flicker", "fog", "drops", "latency"]
+SHAKE_P = {"h": 0.6, "n": 0.25}  # 카메라 흔들림을 넣을 확률(가혹 판, 보통 판). 다른 효과와 따로 뽑는다
 
 
 def make_aug(rng, harsh):
@@ -44,6 +46,8 @@ def make_aug(rng, harsh):
     else:
         names = []
     p = {}
+    if rng.random() < SHAKE_P["h" if harsh else "n"]:  # 카메라 흔들림: 진폭(px), 돌림(도), 떨림 주파수(Hz), 위상
+        p["shake"] = [float(rng.uniform(3, 12)), float(rng.uniform(0.3, 1.5)), float(rng.uniform(2, 6)), *rng.uniform(0, 6.28, 3).tolist()]
     for nm in names:
         if nm == "blur":
             p[nm] = float(rng.uniform(0.6, 2.0))
@@ -75,8 +79,25 @@ def drop_mask(rng, n, w=640, h=480):
     return m.filter(ImageFilter.GaussianBlur(4))
 
 
-def apply(img, p, rng, k, drops):
+def shake(im, sh, k, cam):
+    """카메라 흔들림: 장면마다 조금씩 밀리고 돌아간다(손목은 팔 떨림이라 1.5배). 가장자리가 비지 않게 10% 확대"""
+    amp, rot, f, a1, a2, a3 = sh
+    amp, rot = (amp * 1.5, rot * 1.5) if cam == "wrist" else (amp, rot)
+    t = k / 30.0
+    w = 2 * np.pi * f * t
+    dx = amp * (np.sin(w + a1) + 0.35 * np.sin(2.3 * w + a2))
+    dy = amp * (np.sin(1.3 * w + a2) + 0.35 * np.sin(2.9 * w + a3))
+    r = rot * np.sin(0.9 * w + a3)
+    W, H = im.size
+    im = im.rotate(r, resample=Image.BILINEAR, translate=(dx, dy))
+    m = 0.05
+    return im.crop((int(W * m), int(H * m), int(W * (1 - m)), int(H * (1 - m)))).resize((W, H), Image.BILINEAR)
+
+
+def apply(img, p, rng, k, drops, cam="front"):
     im = Image.fromarray(img)
+    if "shake" in p:
+        im = shake(im, p["shake"], k, cam)
     if "blur" in p:
         im = im.filter(ImageFilter.GaussianBlur(p["blur"]))
     if "motion" in p:
@@ -130,7 +151,7 @@ for n, (f, stem, v) in enumerate(jobs):
     T = min(len(e["state"]), len(frames["front"]), len(frames["wrist"]))
     for i in range(T):
         j = max(0, i - lat)
-        obs = {c: apply(frames[c][j], p, rng, i, drops[c]) if p else frames[c][j] for c in frames}
+        obs = {c: apply(frames[c][j], p, rng, i, drops[c], c) if p else frames[c][j] for c in frames}
         ds.add_frame({"observation.state": e["state"][i], "action": e["action"][i],
                       "observation.images.front": obs["front"], "observation.images.wrist": obs["wrist"], "task": str(e["task"])})
     ds.save_episode()
