@@ -28,6 +28,7 @@ ap.add_argument("--src", default=str(ROOT / "data/twin_src"))
 ap.add_argument("--render", default=str(ROOT / "data/twin_render"))
 ap.add_argument("--repo", default="plug_twin")
 ap.add_argument("--aug", action="store_true")
+ap.add_argument("--seed", type=int, default=1000, help="후처리 무작위 시드 시작(데이터셋마다 다르게)")
 a = ap.parse_args()
 
 EFFECTS = ["blur", "motion", "noise", "jpeg", "flicker", "fog", "drops", "latency"]
@@ -120,7 +121,7 @@ for f in sorted(Path(a.src).glob("ep_*.npz")):
 log = []
 for n, (f, stem, v) in enumerate(jobs):
     e = np.load(f)
-    rng = np.random.default_rng(1000 + n)
+    rng = np.random.default_rng(a.seed + n)
     p = make_aug(rng, v == "h")
     meta = json.loads((R / f"{stem}.json").read_text()) if (R / f"{stem}.json").exists() else {}
     frames = {c: [im for im in iio.get_reader(R / f"{stem}_{c}.mp4")] for c in ("front", "wrist")}
