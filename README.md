@@ -8,7 +8,8 @@
 
 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 공동 2위, (재)부산테크노파크 원장상 수상 (107팀 참가)
 
-[![Award](https://img.shields.io/badge/2026_%EB%8F%99%EB%82%A8%EA%B6%8C_%EB%A9%80%ED%8B%B0%EB%8F%84%EB%A9%94%EC%9D%B8_%EB%AA%A8%EB%B9%8C%EB%A6%AC%ED%8B%B0_%EB%B9%84%EC%A6%88%EB%8B%88%EC%8A%A4_%ED%95%B4%EC%BB%A4%ED%86%A4-%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC%EC%9B%90%EC%9E%A5%EC%83%81_%28%EB%B3%B8%EC%84%A0_%EA%B3%B5%EB%8F%99_2%EC%9C%84%2C_107%ED%8C%80%29-c9a227)](#동남권-해커톤)
+[![Award](https://img.shields.io/badge/2026_%EB%8F%99%EB%82%A8%EA%B6%8C_%ED%95%B4%EC%BB%A4%ED%86%A4-%EB%B3%B8%EC%84%A0_%EA%B3%B5%EB%8F%99_2%EC%9C%84-c9a227)](#동남권-해커톤)
+[![Prize](https://img.shields.io/badge/%28%EC%9E%AC%29%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC-%EC%9B%90%EC%9E%A5%EC%83%81-c9a227)](#동남권-해커톤)
 [![Final](https://img.shields.io/badge/%EB%B3%B8%EC%84%A0-2026.11.8~11.10_%EB%B6%80%EC%82%B0~%EC%98%A4%EC%82%AC%EC%B9%B4_%EC%84%A0%EC%83%81-1a8a5c)](#동남권-해커톤)
 <br>
 ![MuJoCo](https://img.shields.io/badge/MuJoCo-3.17-2b6cb0)
