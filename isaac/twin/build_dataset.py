@@ -127,6 +127,8 @@ REAL = Path.home() / ".cache/huggingface/lerobot/local/plug_static"
 info = json.loads((REAL / "meta/info.json").read_text())
 features = {k: v for k, v in info["features"].items() if k in ("action", "observation.state", "observation.images.front", "observation.images.wrist")}
 root = Path.home() / ".cache/huggingface/lerobot/local" / a.repo
+if not a.repo.startswith("plug_twin"):  # 실물 시범(plug_static 등)은 다시 못 찍는다: 이름을 잘못 넣어도 지우지 않게
+    raise SystemExit(f"--repo는 plug_twin으로 시작해야 한다(지금 {a.repo}). 같은 이름이 있으면 지우고 새로 만들기 때문이다")
 if root.exists():
     shutil.rmtree(root)
 ds = LeRobotDataset.create(f"local/{a.repo}", fps=info["fps"], features=features, root=root, robot_type=info.get("robot_type", "so_follower"),

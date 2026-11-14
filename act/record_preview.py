@@ -110,7 +110,7 @@ if __name__ == "__main__":
             (d / cam).mkdir(parents=True, exist_ok=True)
         ROLL_LOG["dir"] = d
         pol = next((a.split("=", 1)[1] for a in args if a.startswith("--policy.path=")), "")
-        (d / "meta.json").write_text(json.dumps({"policy": pol, "args": args, "joints": JOINTS}, ensure_ascii=False, indent=1))
+        (d / "meta.json").write_text(json.dumps({"policy": pol, "args": args, "joints": JOINTS, "columns": ["t", *JOINTS]}, ensure_ascii=False, indent=1))
         atexit.register(lambda: np.save(d / "state.npy", np.array(ROLL_LOG["rows"], np.float32)))
         print(f"[plugbot] 로봇 실행 기록: {d}", flush=True)
         sys.argv = ["lerobot-rollout", *args]

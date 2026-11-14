@@ -1,0 +1,49 @@
+{
+ "source": "two laptops combined, human-judged per run, aboard ship 2026-11-10 (commit 482c132 chart)",
+ "results": [
+  {
+   "pipeline": "real_to_real",
+   "socket": "static",
+   "ok": 20,
+   "n": 20,
+   "wilson95_pct": [
+    83.9,
+    100
+   ],
+   "model": "act_real_v4/080000"
+  },
+  {
+   "pipeline": "real_to_real",
+   "socket": "moving",
+   "ok": 20,
+   "n": 20,
+   "wilson95_pct": [
+    83.9,
+    100
+   ],
+   "model": "act_real_v4/080000"
+  },
+  {
+   "pipeline": "sim_to_real",
+   "socket": "static",
+   "ok": 20,
+   "n": 20,
+   "wilson95_pct": [
+    83.9,
+    100
+   ],
+   "model": "act_twin_v4/001000"
+  },
+  {
+   "pipeline": "sim_to_real",
+   "socket": "moving",
+   "ok": 19,
+   "n": 20,
+   "wilson95_pct": [
+    76.4,
+    99.1
+   ],
+   "model": "act_twin_v4/001000 (assumed)"
+  }
+ ]
+}

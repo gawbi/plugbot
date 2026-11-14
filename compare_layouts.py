@@ -21,6 +21,8 @@ from plugbot.scene import Scene
 
 OUT = Path(__file__).resolve().parent / "outputs"
 FONT = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+if not Path(FONT).exists():  # 맥 밖(우분투 GPU 노트북)에서는 Noto CJK
+    FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 font_manager.fontManager.addfont(FONT)
 plt.rcParams["font.family"] = font_manager.FontProperties(fname=FONT).get_name()
 W, H = 900, 640

@@ -27,9 +27,8 @@ ap.add_argument("--src", default=str(ROOT / "data/twin_src"))
 ap.add_argument("--out", default=str(ROOT / "data/twin_render"))
 ap.add_argument("--cam", default="", help="앞 카메라 eye와 target 9개 숫자 ex,ey,ez,tx,ty,tz,fov,plate_z,panel_dx")
 ap.add_argument("--wrist", default="0,0,0", help="손목 카메라 추가 회전(도) rx,ry,rz")
-ap.add_argument("--calib", default="", help="실물 꽂힌 장면 npz(eps, front, wrist)에 맞춰 카메라 값을 찾는다")
-ap.add_argument("--calib_n", type=int, default=300)
-ap.add_argument("--try_cams", default="", help="후보 json 파일 [[front dict, wrist list], ...]을 실물 옆에 나란히 그린다")
+ap.add_argument("--try_cams", default="", help="카메라 후보 json [[front dict, wrist list], ...]을 실물 꽂힌 장면 옆에 나란히 그린다")
+ap.add_argument("--real", default="", help="--try_cams와 함께: 실물 꽂힌 장면 npz(eps, front, wrist)")
 a = ap.parse_args()
 
 from isaacsim import SimulationApp  # noqa: E402
@@ -189,7 +188,7 @@ def cam_lens(prim, vfov):
 ap2 = __import__("os").environ.get("TWIN_WRIST", "")  # 손목 카메라 후보 "tilt,vfov,z,h;..." (맞출 때만)
 WRIST = [tuple(map(float, c.split(","))) for c in ap2.split(";")] if ap2 else [(10, 44, -0.05, 0.058)]  # (아래로 기울기 도, 세로 화각, 카메라 z, 축에서 높이[, 옆 m, 돌림 도])
 CALIB_F = HERE / "calib_cam.json"  # --calib으로 실물 꽂힌 장면에 맞춘 카메라 값(있으면 기본값으로 쓴다)
-CALIB = json.loads(CALIB_F.read_text()) if CALIB_F.exists() and not a.calib and not __import__("os").environ.get("TWIN_NOCALIB") else None
+CALIB = json.loads(CALIB_F.read_text()) if CALIB_F.exists() and not a.try_cams and not __import__("os").environ.get("TWIN_NOCALIB") else None
 if CALIB and not ap2:
     WRIST = [tuple(CALIB["wrist"])]
 WRIST = [tuple(w) + (0.0, 0.0)[len(w) - 4:] if len(w) < 6 else tuple(w) for w in WRIST]
@@ -363,115 +362,30 @@ setup_wrist()
 socket_from_end(_e["q"][-1])
 SOCK["axis_ref"] = SOCK["axis"].copy()
 src = Path(a.src)
-if a.calib:
-    # 실물 꽂힌 장면과 트윈 장면의 흰 소켓, 보라 덮개 영역 겹침(IoU)이 가장 큰 카메라 값을 찾는다(무작위 탐색 두 바퀴)
-    R = np.load(a.calib)
-    eps = [int(x) for x in R["eps"]]
-
-    def masks(im):
-        x = im[::4, ::4].astype(np.float32) / 255
-        mx, mn = x.max(2), x.min(2)
-        sat = (mx - mn) / (mx + 1e-6)
-        white = (mx > 0.72) & (sat < 0.2)
-        r, g, b = x[..., 0], x[..., 1], x[..., 2]
-        purple = (b > g * 1.2) & (r > g * 1.05) & (sat > 0.15) & (mx > 0.2) & ~white
-        return white, purple
-
-    def iou(a_, b_):
-        u = (a_ | b_).sum()
-        return (a_ & b_).sum() / u if u else 0.0
-
-    real = {c: [masks(im) for im in R[c]] for c in ("front", "wrist")}
-    FR = dict(dx=(-0.15, 0.05), dy=(0.08, 0.25), dz=(-0.03, 0.12), tx=(-0.15, 0.0), ty=(-0.05, 0.03), tz=(-0.06, 0.03), fov=(45, 80))
-    WR = [(0, 30), (45, 95), (-0.07, -0.02), (0.045, 0.08), (-0.01, 0.01), (-8, 8)]  # 덮개 밖(링 위)만
-    rng = np.random.default_rng(0)
-
-    def sample(n, fc0=None, wr0=None, scale=1.0):
-        out = []
-        for _ in range(n):
-            if fc0 is None:
-                fc = {k: float(rng.uniform(*v)) for k, v in FR.items()}
-                wr = tuple(float(rng.uniform(*v)) for v in WR)
-            else:
-                fc = {k: float(np.clip(fc0[k] + rng.normal(0, (v[1] - v[0]) * 0.08 * scale), *v)) for k, v in FR.items()}
-                wr = tuple(float(np.clip(w + rng.normal(0, (v[1] - v[0]) * 0.08 * scale), *v)) for w, v in zip(wr0, WR))
-            out.append((fc, wr))
-        return out
-
-    def evaluate(cands):
-        sc = np.zeros((len(cands), 2))
-        for ei, ep in enumerate(eps):
-            e = np.load(ROOT / f"data/twin_src/ep_{ep:03d}.npz")
-            socket_from_end(e["q"][-1])
-            for _ in range(3):
-                show(e["q"][-1])
-            for ci, (fc, wr) in enumerate(cands):
-                front_from_socket(fc)
-                WRIST[0] = wr
-                cam_lens(wcams[0][0].GetPrim(), wr[1])
-                wcams[0] = (wcams[0][0], wr[0], (wr[2], wr[3]))
-                setup_wrist()
-                for _ in range(4):  # 카메라를 바꾼 뒤 화면이 늦게 따라온다
-                    world.render()
-                g = grab()
-                for j, c in enumerate(("front", "wrist")):
-                    if g[c] is None:
-                        continue
-                    tw, tp = masks(g[c])
-                    rw, rp = real[c][ei]
-                    sc[ci, j] += (iou(tw, rw) + iou(tp, rp)) / 2 / len(eps)
-        return sc
-
-    if a.try_cams:
-        import imageio.v2 as iio
-        cands = [(dict(FC, **f), tuple(w)) for f, w in json.loads(Path(a.try_cams).read_text())]
-        rows = []
-        for ei, ep in enumerate(eps[-2:]):
-            ei = len(eps) - 2 + ei
-            e = np.load(ROOT / f"data/twin_src/ep_{ep:03d}.npz")
-            socket_from_end(e["q"][-1])
-            for _ in range(3):
-                show(e["q"][-1])
-            for fc, wr in cands:
-                front_from_socket(fc)
-                WRIST[0] = wr
-                cam_lens(wcams[0][0].GetPrim(), wr[1])
-                wcams[0] = (wcams[0][0], wr[0], (wr[2], wr[3]))
-                setup_wrist()
-                for _ in range(6):
-                    world.render()
-                g = grab()
-                rows.append(np.concatenate([R["wrist"][ei], g["wrist"], R["front"][ei], g["front"]], 1)[::2, ::2])
-        iio.imwrite(ROOT / "outputs/twin_try_cams.png", np.concatenate(rows, 0))
-        app.close()
-        raise SystemExit
-    import time
-    t0 = time.time()
-    base = [(dict(FC), WRIST[0])]
-    cands = base + sample(a.calib_n)
-    sc = evaluate(cands)
-    print(f"1바퀴 {len(cands)}개 {time.time() - t0:.0f}s, 지금 값 앞 {sc[0, 0]:.3f} 손목 {sc[0, 1]:.3f}", flush=True)
-    bf, bw = cands[int(np.argmax(sc[:, 0]))][0], cands[int(np.argmax(sc[:, 1]))][1]
-    for rnd, scale in ((2, 1.0), (3, 0.4)):
-        c2 = [(bf, bw)] + sample(a.calib_n // 2, bf, bw, scale)
-        s2 = evaluate(c2)
-        bf, bw = c2[int(np.argmax(s2[:, 0]))][0], c2[int(np.argmax(s2[:, 1]))][1]
-        print(f"{rnd}바퀴 앞 {s2[:, 0].max():.3f} 손목 {s2[:, 1].max():.3f} {time.time() - t0:.0f}s", flush=True)
-    res = {"front": bf, "wrist": list(bw), "score_before": sc[0].tolist(), "score_after": [float(s2[:, 0].max()), float(s2[:, 1].max())]}
-    print("CALIB", json.dumps(res), flush=True)
-    (ROOT / "isaac/twin/calib_cam.json").write_text(json.dumps(res, indent=1))
-    # 맞춘 값으로 비교 그림
+if a.try_cams:
+    # 카메라 후보를 실물 꽂힌 장면 옆에 나란히 그린다. 사람이 보고 골라 calib_cam.json에 적는다.
+    # (겹침 점수로 고르는 자동 탐색은 2026-11-10 두 번 모두 덮개 안이나 옆면을 보는 값을 골라 지웠다)
     import imageio.v2 as iio
-    front_from_socket(bf); WRIST[0] = tuple(bw); cam_lens(wcams[0][0].GetPrim(), bw[1]); wcams[0] = (wcams[0][0], bw[0], (bw[2], bw[3])); setup_wrist()
+    R = np.load(a.real)
+    cands = [(dict(FC, **f), tuple(w)) for f, w in json.loads(Path(a.try_cams).read_text())]
     rows = []
-    for ei, ep in enumerate(eps):
-        e = np.load(ROOT / f"data/twin_src/ep_{ep:03d}.npz")
+    for ri in range(len(R["eps"]))[-2:]:  # 실물 장면 마지막 두 개
+        e = np.load(ROOT / f"data/twin_src/ep_{int(R['eps'][ri]):03d}.npz")
         socket_from_end(e["q"][-1])
-        for _ in range(4):
-            show(e["q"][-1], 2)
-        g = grab()
-        rows.append(np.concatenate([R["wrist"][ei], g["wrist"], R["front"][ei], g["front"]], 1)[::2, ::2])
-    iio.imwrite(ROOT / "outputs/twin_calib_compare.png", np.concatenate(rows, 0))
+        for _ in range(3):
+            show(e["q"][-1])
+        for fc, wr in cands:
+            front_from_socket(fc)
+            WRIST[0] = wr
+            cam_lens(wcams[0][0].GetPrim(), wr[1])
+            wcams[0] = (wcams[0][0], wr[0], (wr[2], wr[3]))
+            setup_wrist()
+            for _ in range(6):  # 카메라를 바꾼 뒤 화면이 늦게 따라온다
+                world.render()
+            g = grab()
+            rows.append(np.concatenate([R["wrist"][ri], g["wrist"], R["front"][ri], g["front"]], 1)[::2, ::2])
+    iio.imwrite(ROOT / "outputs/twin_try_cams.png", np.concatenate(rows, 0))
+    print("저장 outputs/twin_try_cams.png (행: 후보, 열: 실물 손목 | 트윈 손목 | 실물 앞 | 트윈 앞)")
 elif a.preview >= 0:
     import imageio.v2 as iio
     e = np.load(src / f"ep_{a.preview:03d}.npz")

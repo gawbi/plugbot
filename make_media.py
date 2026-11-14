@@ -7,6 +7,8 @@
 실행: .venv/bin/python make_media.py
 """
 
+from pathlib import Path
+
 import mujoco
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -18,6 +20,8 @@ from plugbot.waves import ShipMotion
 
 OUT = __import__("pathlib").Path(__file__).resolve().parent / "outputs"
 FONT = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+if not Path(FONT).exists():  # 맥 밖(우분투 GPU 노트북)에서는 Noto CJK
+    FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 SHOW = (np.array([0.06, -0.48, 0.30]), np.array([0.28, 0.03, 0.02]))  # isaac/build_assets.py ShowCam(side), 초점 18 mm
 
 

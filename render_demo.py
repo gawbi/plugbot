@@ -18,10 +18,12 @@ ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "outputs"
 CAD = ROOT / "cad/out"
 FONT = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+if not Path(FONT).exists():  # 맥 밖(우분투 GPU 노트북)에서는 Noto CJK
+    FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 
 def font(size, bold=False):
-    return ImageFont.truetype(FONT, size, index=6 if bold else 0)
+    return ImageFont.truetype(FONT, size, index=(6 if bold else 0) if "Apple" in FONT else 1)
 
 
 def label(img, text, sub=None, color=(30, 30, 30)):

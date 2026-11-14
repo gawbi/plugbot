@@ -25,13 +25,15 @@ OUT = Path(__file__).resolve().parent / "outputs"
 PHOTOS = Path(__file__).resolve().parent / "photos"
 PKG = Path(__file__).resolve().parents[1] / "SimCell_심사패키지"
 FONT = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+if not Path(FONT).exists():  # 맥 밖(우분투 GPU 노트북)에서는 Noto CJK
+    FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 font_manager.fontManager.addfont(FONT)
 plt.rcParams["font.family"] = font_manager.FontProperties(fname=FONT).get_name()
 plt.rcParams["axes.unicode_minus"] = False
 
 
 def font(size, bold=False):
-    return ImageFont.truetype(FONT, size, index=6 if bold else 0)
+    return ImageFont.truetype(FONT, size, index=(6 if bold else 0) if "Apple" in FONT else 1)
 
 
 def prediction_plot(hs=0.06, seed=3):

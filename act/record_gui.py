@@ -6,6 +6,7 @@
 실행: bash act/record_gui.sh → http://127.0.0.1:8200
 """
 
+import functools
 import json
 import os
 import pty
@@ -39,6 +40,16 @@ except OSError:
 S = {"proc": None, "fd": None, "kind": _KIND0, "position": POSITIONS[0], "phase": "대기", "episode": None,
      "phase_t0": 0.0, "added": 0, "target": 0, "log": deque(maxlen=200), "error": "", "cam_on": False, "rollout": None}
 LOCK = threading.Lock()
+START_LOCK = threading.Lock()  # 녹화, 로봇 실행, 흔들기 시작은 한 번에 하나씩: 버튼을 두 번 눌러도 프로세스가 두 개 뜨지 않게
+
+
+def one_at_a_time(f):
+    """확인('이미 돌고 있나')부터 프로세스 등록까지를 START_LOCK 하나로 묶는다. 두 번째 요청은 기다렸다가 409를 받는다"""
+    @functools.wraps(f)
+    def g(*a, **k):
+        with START_LOCK:
+            return f(*a, **k)
+    return g
 
 
 def ds_root(kind):
@@ -127,6 +138,7 @@ class Start(BaseModel):
 
 
 @app.post("/start")
+@one_at_a_time
 def start(req: Start):
     with LOCK:
         if S["proc"] is not None:
@@ -198,6 +210,7 @@ class Roll(BaseModel):
 
 
 @app.post("/rollout/start")
+@one_at_a_time
 def rollout_start(req: Roll):
     path = RUNS / req.ckpt.split("/")[0] / "checkpoints" / req.ckpt.split("/")[1] / "pretrained_model"
     if not path.exists():
@@ -409,6 +422,7 @@ class Shake(BaseModel):
 
 
 @app.post("/shaker/start")
+@one_at_a_time
 def shaker_start(req: Shake = Shake()):
     if shaker_running():
         return JSONResponse({"ok": False, "msg": "이미 흔드는 중. [갑판 멈추기] 뒤 다시"}, 409)

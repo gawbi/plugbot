@@ -108,6 +108,7 @@ def keys():
             state["run"] = False
             return
         print("mode", state["mode"], " amp", state["amp"], "mm  period", state["per"], "s")
+    state["run"] = False  # 입력이 닫혔다 = 녹화 화면 서버가 꺼졌다. 아무도 못 멈추는 채로 흔들지 않게 멈춘다
 
 
 LIVE = "/dev/shm/plugbot_shaker.json"  # 부스 화면(act/booth.py)이 읽는다: 명령 높이와 서보가 실제로 간 위치로 계산한 높이
