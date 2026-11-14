@@ -25,7 +25,7 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 실물 조건 흔들기 / robustness sweep | 예측은 지연 0.05~0.2 s, 잡음, 보정 오차, 강성 변화에서 대체로 90% 이상 | MuJoCo, 파고 4 cm, 30회 | 시뮬레이션 | `outputs/sim2real_robustness.json` |
 | Isaac 시범으로 학습한 ACT / ACT trained on Isaac demos | Isaac 안에서 20/20 (0~6 cm) | 분포 안 평가, 실물 근거 아님 / in-distribution only | 시뮬레이션 | `outputs/ISAAC_RESULTS.md` |
 | 이종 원격조종 / heterogeneous teleop | SO-101 리더 팔 → Isaac 안의 UR10e(실제 크기) 실시간 조종, 부두 소켓 꽂기 | 5배 확대 + Lula IK, 팀원 노트북(Isaac 6.2) | 시각화(시뮬레이션) | `isaac/scaleup/README.md`, branch `teleop-laptop2` |
-| 대회 결과 / award | 최종 2위 / 2nd place overall | 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 | 사실 | 사용자 보고(2026-11-14) |
+| 대회 결과 / award | 본선 공동 2위, (재)부산테크노파크 원장상 / joint 2nd place, Busan Techno Park President's Award | 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 개인부문, 107팀 참가 / 107 teams | 사실 | README(2026-11-11), 사용자 보고 |
 
 ## 2. 쓰면 안 되는 말 / Do not claim
 - 실물 산업용 로봇(UR10e)으로 했다 / ran on a real industrial robot → **Isaac 시뮬레이션만**
@@ -46,7 +46,7 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 11/8 | 승선, 기준선 태그 `boarding-20261108` / boarding baseline |
 | 11/9 | 선상 실물 측정, 포토박스 Isaac 트윈 구축 / onboard tests, photobox twin |
 | 11/10 | 트윈 카메라 보정 → Sim-to-Real 성공, 최종 결과표, 제출 / camera calibration, final results |
-| 결과 | 최종 2위 / 2nd place |
+| 결과 | 본선 공동 2위, 부산테크노파크 원장상(107팀) / joint 2nd of 107 teams |
 
 ## 4. 팀과 역할 / Team and roles (팀 Land2Sea, 4명)
 - **김광빈(팀장 / team lead)**: 시스템 아키텍처, 실물 로봇 소프트웨어(녹화 화면, 원격조종, 안전 장치), ACT 학습과 평가, MuJoCo 실험, Isaac 포트와 디지털 트윈, 하드웨어 통합 설계(덮개 CAD, 카메라 배치), 측정과 문제 기록. 저장소 커밋 전부(main 113, 전체 193).
