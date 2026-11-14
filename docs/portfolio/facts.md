@@ -25,6 +25,9 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 실물 조건 흔들기 / robustness sweep | 예측은 지연 0.05~0.2 s, 잡음, 보정 오차, 강성 변화에서 대체로 90% 이상 | MuJoCo, 파고 4 cm, 30회 | 시뮬레이션 | `outputs/sim2real_robustness.json` |
 | Isaac 시범으로 학습한 ACT / ACT trained on Isaac demos | Isaac 안에서 20/20 (0~6 cm) | 분포 안 평가, 실물 근거 아님 / in-distribution only | 시뮬레이션 | `outputs/ISAAC_RESULTS.md` |
 | 이종 원격조종 / heterogeneous teleop | SO-101 리더 팔 → Isaac 안의 UR10e(실제 크기) 실시간 조종, 부두 소켓 꽂기 | 5배 확대 + Lula IK, 팀원 노트북(Isaac 6.2) | 시각화(시뮬레이션) | `isaac/scaleup/README.md`, branch `teleop-laptop2` |
+| 문제 근거 / problem evidence | 부산 신항 육상전원 첫해 신청 19척 중 9척 연결 실패 / 9 of 19 ships failed to connect in the first year | 대부분 부두 혼잡으로 전원 설비 자리에 정확히 대지 못함, 비 오면 고압 케이블 연결 불가 / mostly could not berth exactly at the outlet; high-voltage cable not connected in rain | 사실(기사) | [파이낸스투데이 2020-08-05](https://www.fntoday.co.kr/news/articleView.html?idxno=227118) |
+| 축척 / scale | 모형 파고 6 cm는 실선 약 0.6 m / 6 cm model wave is about 0.6 m full scale | 1:10 프루드 상사 **가정**, 선박 운동은 실제 RAO가 아닌 근사 / Froude 1:10 assumed, approximate ship motion | 가정 | `docs/simulation_study_ko.md` |
+| 시뮬레이션 카메라 / simulated camera | 30 Hz, 지연 0.10 s, 잡음 0.5 mm | 예측 대 따라가기 비교 조건 | 시뮬레이션 | `outputs/compare_predict_follow.json` |
 | 대회 결과 / award | 본선 공동 2위, (재)부산테크노파크 원장상 / joint 2nd place, Busan Techno Park President's Award | 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 개인부문, 107팀 참가 / 107 teams | 사실 | README(2026-11-11), 사용자 보고 |
 
 ## 2. 쓰면 안 되는 말 / Do not claim
