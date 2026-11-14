@@ -28,7 +28,7 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 문제 근거 / problem evidence | 부산 신항 육상전원 첫해 신청 19척 중 9척 연결 실패 / 9 of 19 ships failed to connect in the first year | 대부분 부두 혼잡으로 전원 설비 자리에 정확히 대지 못함, 비 오면 고압 케이블 연결 불가 / mostly could not berth exactly at the outlet; high-voltage cable not connected in rain | 사실(기사) | [파이낸스투데이 2020-08-05](https://www.fntoday.co.kr/news/articleView.html?idxno=227118) |
 | 축척 / scale | 모형 파고 6 cm는 실선 약 0.6 m / 6 cm model wave is about 0.6 m full scale | 1:10 프루드 상사 **가정**, 선박 운동은 실제 RAO가 아닌 근사 / Froude 1:10 assumed, approximate ship motion | 가정 | `docs/simulation_study_ko.md` |
 | 시뮬레이션 카메라 / simulated camera | 30 Hz, 지연 0.10 s, 잡음 0.5 mm | 예측 대 따라가기 비교 조건 | 시뮬레이션 | `outputs/compare_predict_follow.json` |
-| 대회 결과 / award | 본선 공동 2위, (재)부산테크노파크 원장상 / joint 2nd place, Busan Techno Park President's Award | 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 개인부문, 107팀 참가 / 107 teams | 사실 | README(2026-11-11), 사용자 보고 |
+| 대회 결과 / award | 본선 우수상(공동 2위), (재)부산테크노파크원장상 / Excellence Award (joint 2nd place), presented by the President of Busan Techno Park | 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 개인부문, 107팀 참가. 상장 제 정책-2026-002호(2026-11-10, 참가자 김광빈, 나다원, 이주은, 조선기), 시상판 상금 250만 원 | 사실 | 상장 사진 `docs/assets/award_certificate.jpg`, 사용자 보고(공동 2위) |
 
 ## 2. 쓰면 안 되는 말 / Do not claim
 - 실물 산업용 로봇(UR10e)으로 했다 / ran on a real industrial robot → **Isaac 시뮬레이션만**
@@ -49,7 +49,7 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 11/8 | 승선, 기준선 태그 `boarding-20261108` / boarding baseline |
 | 11/9 | 선상 실물 측정, 포토박스 Isaac 트윈 구축 / onboard tests, photobox twin |
 | 11/10 | 트윈 카메라 보정 → Sim-to-Real 성공, 최종 결과표, 제출 / camera calibration, final results |
-| 결과 | 본선 공동 2위, 부산테크노파크 원장상(107팀) / joint 2nd of 107 teams |
+| 결과 | 본선 우수상(공동 2위), (재)부산테크노파크원장상(107팀) / Excellence Award, joint 2nd of 107 teams |
 
 ## 4. 팀과 역할 / Team and roles (팀 Land2Sea, 4명)
 영문 표기: 이름은 개정 로마자로 붙여 쓰고, 성은 여권에서 흔한 관용 표기(Kim, Cho, Na, Lee)를 쓴다. 선기는 '성이'로 읽히지 않게 Seon-gi로 붙임표를 넣는다. 영어 글에서는 이름 뒤에 한글을 한 번 함께 적는다.

@@ -56,6 +56,7 @@ p { margin: 0 0 16px; }
 ul { margin: 0 0 16px; padding-left: 1.2em; }
 li { margin-bottom: 8px; }
 .muted { color: var(--muted); }
+.nw { white-space: nowrap; }
 .small { font-size: 14px; line-height: 1.6; }
 
 /* top bar */
@@ -157,6 +158,10 @@ figcaption { color: var(--muted); font-size: 14px; line-height: 1.6; margin-top:
 .timeline li.end { border-bottom: 0; font-weight: 700; }
 
 .team { list-style: none; padding: 0; }
+/* award: three photos share one height, widths follow their aspect ratios */
+.award-photos { display: grid; grid-template-columns: 1.678fr 1.132fr 0.694fr; gap: 10px; margin: 8px 0 4px; }
+.award-photos img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; background: var(--surface); }
+@media (max-width: 760px) { .award-photos { grid-template-columns: 1fr 1fr; } .award-photos a:first-child { grid-column: 1 / -1; } }
 .team li { margin-bottom: 10px; }
 
 footer { border-top: 1px solid var(--rule); margin-top: 64px; padding: 28px 0 48px; font-size: 14px; color: var(--muted); }

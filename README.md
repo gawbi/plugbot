@@ -6,12 +6,12 @@
 
 **Learned from human demonstrations, and from simulator images only, then verified on a real robot aboard a ship**
 
-Joint 2nd place of 107 teams, and the Busan Techno Park President's Award, 2026 Southeast Korea Multi-Domain Mobility Business Hackathon
+Excellence Award (joint 2nd place of 107 teams), presented by the President of Busan Techno Park, 2026 Southeast Korea Multi-Domain Mobility Business Hackathon
 
 By **Gwangbin Kim**, team lead of Land2Sea: system architecture and all of the software in this repository ([team](#team-and-how-this-was-built))
 
 [![Award](https://img.shields.io/badge/Hackathon-Joint_2nd_of_107-c9a227)](#award)
-[![Prize](https://img.shields.io/badge/Busan_Techno_Park-President's_Award-c9a227)](#award)
+[![Prize](https://img.shields.io/badge/Busan_Techno_Park-Excellence_Award-c9a227)](#award)
 <br>
 ![Robot](https://img.shields.io/badge/Robot-SO--101_x2-6b3fd6)
 ![Policy](https://img.shields.io/badge/Policy-ACT_(LeRobot_0.6.1)-ffcc4d)
@@ -193,6 +193,13 @@ I built this with an AI coding agent (Claude Code) as a pair programmer. I set t
 
 ## Award
 
-**2026 Southeast Korea Multi-Domain Mobility Business Hackathon** (individual track, 107 teams): joint 2nd place in the final and the (Foundation) Busan Techno Park President's Award. The final was held aboard a ferry between Busan and Osaka, 2026-11-08 to 11-10.
+**2026 Southeast Korea Multi-Domain Mobility Business Hackathon** (individual track, 107 teams): the Excellence Award (joint 2nd place), presented by the President of Busan Techno Park, 2026-11-10. The final was held aboard a ferry between Busan and Osaka, 2026-11-08 to 11-10.
+
+<p align="center">
+<img src="docs/assets/award_stage.jpg" height="250" alt="Team Land2Sea receiving the Excellence Award on stage">
+<img src="docs/assets/award_team.jpg" height="250" alt="Team Land2Sea at the photo wall with the award board">
+<img src="docs/assets/award_certificate.jpg" height="250" alt="Award certificate, Excellence Award, team Land2Sea, 2026-11-10">
+</p>
+
 
 Data sources, licenses and third-party assets: [`docs/data_sources.md`](docs/data_sources.md). SO-101 model: MuJoCo Menagerie (Apache 2.0), TheRobotStudio SO-ARM100.

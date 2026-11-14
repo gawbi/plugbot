@@ -6,7 +6,7 @@
 |---|---|
 | Role | Team lead (4 people). System architecture and all of the software, learning, simulation and hardware integration design |
 | Time | First commit 2026-10-31 to judged real-robot result 11-10 (11 days); the last three days aboard the ship during the final |
-| Outcome | Joint 2nd place of 107 teams and the Busan Techno Park President's Award, 2026 Southeast Korea Multi-Domain Mobility Business Hackathon |
+| Outcome | Excellence Award (joint 2nd place of 107 teams), presented by the President of Busan Techno Park, 2026 Southeast Korea Multi-Domain Mobility Business Hackathon |
 | Real robot | Real-to-Real 40/40; Sim-to-Real 39/40, trained on zero real images |
 | Simulation | Same waves, 100 paired trials: predicting the socket motion 88%, following it 46% |
 | Stack | Python, LeRobot 0.6.1 (ACT), PyTorch, Isaac Sim 5.1, MuJoCo 3.17, FastAPI, OpenCV, CadQuery |
@@ -135,4 +135,4 @@ That is how four subsystems (real-robot learning, digital twin, simulation study
 | 11/8 | Boarding; baseline tag `boarding-20261108` |
 | 11/9 | Real-robot tests aboard; photobox Isaac twin built |
 | 11/10 | Twin cameras calibrated, Sim-to-Real success, final results, submission |
-| Result | Joint 2nd place of 107 teams, Busan Techno Park President's Award |
+| Result | Excellence Award (joint 2nd place of 107 teams) |

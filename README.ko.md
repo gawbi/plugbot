@@ -6,12 +6,12 @@
 
 **사람 시범으로 배우고, 시뮬레이터 화면만으로도 배워서, 배 위 실물 로봇으로 검증했다**
 
-2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 공동 2위, (재)부산테크노파크 원장상 (107팀 참가)
+2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 우수상(공동 2위), (재)부산테크노파크원장상 (107팀 참가)
 
 **김광빈** (Land2Sea 팀장): 시스템 설계와 이 저장소의 소프트웨어 전체 ([팀](#팀과-만든-방식))
 
 [![Award](https://img.shields.io/badge/%ED%95%B4%EC%BB%A4%ED%86%A4-%EB%B3%B8%EC%84%A0_%EA%B3%B5%EB%8F%99_2%EC%9C%84-c9a227)](#수상)
-[![Prize](https://img.shields.io/badge/%28%EC%9E%AC%29%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC-%EC%9B%90%EC%9E%A5%EC%83%81-c9a227)](#수상)
+[![Prize](https://img.shields.io/badge/%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC%EC%9B%90%EC%9E%A5%EC%83%81-%EC%9A%B0%EC%88%98%EC%83%81-c9a227)](#수상)
 <br>
 ![Robot](https://img.shields.io/badge/Robot-SO--101_x2-6b3fd6)
 ![Policy](https://img.shields.io/badge/Policy-ACT_(LeRobot_0.6.1)-ffcc4d)
@@ -191,6 +191,13 @@ AI 코딩 에이전트(Claude Code)를 짝 프로그래머로 썼다. 아키텍�
 
 ## 수상
 
-**2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤** 개인부문(107팀): 본선 공동 2위, (재)부산테크노파크 원장상. 본선은 2026-11-08~10 부산~오사카 페리 선상에서 열렸다.
+**2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤** 개인부문(107팀): 본선 우수상(공동 2위), (재)부산테크노파크원장상, 2026-11-10 수상. 본선은 2026-11-08~10 부산~오사카 페리 선상에서 열렸다.
+
+<p align="center">
+<img src="docs/assets/award_stage.jpg" height="250" alt="무대에서 우수상을 받는 Land2Sea 팀">
+<img src="docs/assets/award_team.jpg" height="250" alt="시상판을 든 Land2Sea 팀">
+<img src="docs/assets/award_certificate.jpg" height="250" alt="우수상 상장, 팀 Land2Sea, 2026년 11월 10일">
+</p>
+
 
 데이터 출처, 이용 조건, 제3자 자산의 라이선스: [`docs/data_sources.md`](docs/data_sources.md). SO-101 모델: MuJoCo Menagerie(Apache 2.0), TheRobotStudio SO-ARM100.
