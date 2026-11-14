@@ -8,6 +8,8 @@
 
 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 공동 2위, (재)부산테크노파크 원장상 (107팀 참가)
 
+**김광빈** (Land2Sea 팀장): 시스템 설계와 이 저장소의 소프트웨어 전체 ([팀](#팀과-만든-방식))
+
 [![Award](https://img.shields.io/badge/%ED%95%B4%EC%BB%A4%ED%86%A4-%EB%B3%B8%EC%84%A0_%EA%B3%B5%EB%8F%99_2%EC%9C%84-c9a227)](#수상)
 [![Prize](https://img.shields.io/badge/%28%EC%9E%AC%29%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC-%EC%9B%90%EC%9E%A5%EC%83%81-c9a227)](#수상)
 <br>

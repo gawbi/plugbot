@@ -8,6 +8,8 @@
 
 Joint 2nd place of 107 teams, and the Busan Techno Park President's Award, 2026 Southeast Korea Multi-Domain Mobility Business Hackathon
 
+By **Gwangbin Kim**, team lead of Land2Sea: system architecture and all of the software in this repository ([team](#team-and-how-this-was-built))
+
 [![Award](https://img.shields.io/badge/Hackathon-Joint_2nd_of_107-c9a227)](#award)
 [![Prize](https://img.shields.io/badge/Busan_Techno_Park-President's_Award-c9a227)](#award)
 <br>
@@ -182,10 +184,10 @@ Isaac Sim setup notes for this laptop (Ubuntu 26.04, driver 580-open): [`CLAUDE.
 ## Team and how this was built
 
 Team Land2Sea, 4 people.
-- **김광빈 (team lead):** system architecture, robot software and safety, ACT training and evaluation, MuJoCo study, Isaac port and digital twin, hardware integration design (gripper cover CAD, camera placement), measurement and the problem log. All commits in this repository.
-- **조선기:** hardware build (booth, shaking deck, camera mounts, socket alignment).
-- **나다원:** pitch and presentation.
-- **이주은:** market, pricing and business-model research.
+- **Gwangbin Kim (김광빈), team lead:** system architecture, robot software and safety, ACT training and evaluation, MuJoCo study, Isaac port and digital twin, hardware integration design (gripper cover CAD, camera placement), measurement and the problem log. All commits in this repository.
+- **Seon-gi Cho (조선기):** hardware build (booth, shaking deck, camera mounts, socket alignment).
+- **Dawon Na (나다원):** pitch and presentation.
+- **Jueun Lee (이주은):** market, pricing and business-model research.
 
 I built this with an AI coding agent (Claude Code) as a pair programmer. I set the architecture and experiments, debugged the hardware on the bench, decided what counted as success, and checked every claim against logged data; the agent wrote much of the code under that direction. That is how four subsystems (real-robot learning, digital twin, simulation study, industrial-arm teleop) went from the first commit on 2026-10-31 to a judged real-robot result on 2026-11-10, the last three days aboard the ship.
 

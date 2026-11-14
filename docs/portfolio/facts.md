@@ -49,11 +49,12 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 결과 | 본선 공동 2위, 부산테크노파크 원장상(107팀) / joint 2nd of 107 teams |
 
 ## 4. 팀과 역할 / Team and roles (팀 Land2Sea, 4명)
-- **김광빈(팀장 / team lead)**: 시스템 아키텍처, 실물 로봇 소프트웨어(녹화 화면, 원격조종, 안전 장치), ACT 학습과 평가, MuJoCo 실험, Isaac 포트와 디지털 트윈, 하드웨어 통합 설계(덮개 CAD, 카메라 배치), 측정과 문제 기록. 저장소 커밋 전부(main 113, 전체 193).
-- 조선기: 하드웨어 제작(부스, 흔들림 갑판, 카메라 고정, 소켓 정렬) / hardware build
-- 나다원: 발표 구성, 대본, 질의응답 / pitch and presentation
-- 이주은: 시장, 가격, 사업 모델, 데이터 출처 조사 / business and market research
-- 개발 방식 / how it was built: AI 코딩 에이전트(Claude Code)를 지휘해 22일 안에 하위 시스템 4개를 통합. 방향, 실험 설계, 판정, 하드웨어 디버깅, 주장 검증은 직접 했다.
+영문 표기: 이름은 개정 로마자로 붙여 쓰고, 성은 여권에서 흔한 관용 표기(Kim, Cho, Na, Lee)를 쓴다. 선기는 '성이'로 읽히지 않게 Seon-gi로 붙임표를 넣는다. 영어 글에서는 이름 뒤에 한글을 한 번 함께 적는다.
+- **김광빈 Gwangbin Kim(팀장 / team lead)**: 시스템 아키텍처, 실물 로봇 소프트웨어(녹화 화면, 원격조종, 안전 장치), ACT 학습과 평가, MuJoCo 실험, Isaac 포트와 디지털 트윈, 하드웨어 통합 설계(덮개 CAD, 카메라 배치), 측정과 문제 기록. 저장소 커밋 전부(main 113, 전체 193).
+- 조선기 Seon-gi Cho: 하드웨어 제작(부스, 흔들림 갑판, 카메라 고정, 소켓 정렬) / hardware build
+- 나다원 Dawon Na: 발표 구성, 대본, 질의응답 / pitch and presentation
+- 이주은 Jueun Lee: 시장, 가격, 사업 모델, 데이터 출처 조사 / business and market research
+- 개발 방식 / how it was built: AI 코딩 에이전트(Claude Code)를 지휘해 11일 안에 하위 시스템 4개를 통합. 방향, 실험 설계, 판정, 하드웨어 디버깅, 주장 검증은 직접 했다.
 
 ## 5. 규모 / Scale
 - Python 77개 파일, 11,332줄 / 77 files, 11,332 lines; main 113 commits (193 all branches), 2026-10-31 ~ 11-10 (11일 / 11 days). 발표의 '22일'은 예선부터 센 기간
