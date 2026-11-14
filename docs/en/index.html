@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlugBot Gwangbin Kim</title>
+<meta name="description" content="A low-cost robot arm that learns to plug into a moving ship socket, from human demonstrations and from an Isaac Sim digital twin, verified on a real robot aboard a ship. Joint 2nd place of 107 teams.">
+<meta property="og:title" content="PlugBot: a robot arm that plugs into a moving ship socket">
+<meta property="og:description" content="Real-to-Real 40/40, Sim-to-Real 39/40 with zero real images. Joint 2nd place of 107 teams and the Busan Techno Park President's Award.">
+<link rel="alternate" hreflang="ko" href="../">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+<script src="../assets/site.js"></script>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="name" href="#top">PlugBot <span class="muted">Gwangbin Kim</span></a>
+    <nav aria-label="On this page">
+      <a href="#results">Results</a>
+      <a href="#approach">Approach</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#problems">Problems</a>
+      <a href="#method">Method</a>
+      <a href="#role">Role</a>
+    </nav>
+    <div class="tools">
+      <a href="../" hreflang="ko" lang="ko">한국어</a>
+      <button class="theme" type="button" aria-label="Dark theme" aria-pressed="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <h1>A low-cost robot arm that plugs into a moving ship socket</h1>
+      <p class="lede">It learned from human demonstrations, and from simulator images alone, and was verified on a real robot aboard a ship.</p>
+    </div>
+    <dl class="facts">
+      <dt>Role</dt><dd>Team lead (4 people). System architecture and all of the software, learning, simulation and hardware integration design</dd>
+      <dt>Time</dt><dd>2026-10-31 to 11-10, 11 days. The last three days aboard a Busan to Osaka ferry during the final</dd>
+      <dt>Award</dt><dd>Joint 2nd place of 107 teams and the Busan Techno Park President's Award, 2026 Southeast Korea Multi-Domain Mobility Business Hackathon</dd>
+      <dt>Stack</dt><dd>LeRobot ACT, PyTorch, Isaac Sim 5.1, MuJoCo, FastAPI, OpenCV, CadQuery</dd>
+    </dl>
+  </div>
+
+  <div class="links">
+    <a href="https://github.com/gawbi/plugbot">GitHub repository</a>
+    <a href="https://github.com/gawbi/plugbot/blob/main/docs/portfolio/case_study_en.md">Case study text</a>
+    <a href="https://github.com/gawbi/plugbot/blob/main/docs/troubleshooting.md">Problem log (19 incidents, Korean)</a>
+  </div>
+
+  <figure class="hero-media">
+    <img src="../assets/hero_three_paths.gif" width="1000" height="300" alt="Left: a real arm trained on human demonstrations inserts into a moving socket. Middle: a real arm trained only on simulator images inserts into a moving socket. Right: the same skill on a full-size UR10e in Isaac Sim.">
+    <figcaption>Left and middle: the real SO-101 running a learned ACT policy on the shaking deck, trained on human demonstrations (left) and on Isaac twin renders only (middle). Right: a kinematic Isaac Sim visualization.</figcaption>
+  </figure>
+
+  <section id="results">
+    <h2>Real-robot results</h2>
+    <p class="col">Each dot is one autonomous run, judged by a person with a button. Measured aboard the ship on 2026-11-09 and 10, two laptops combined.</p>
+
+    <div class="ledger">
+      <div class="grp">Real-to-Real<small>134 human teleop demos</small></div>
+      <div class="cond">Static socket</div>
+      <div class="dots" data-runs="ok:20" role="img" aria-label="20 of 20 succeeded"></div>
+      <div class="n">20/20<small>84 to 100%</small></div>
+
+      <div class="sp"></div>
+      <div class="cond">Moving deck</div>
+      <div class="dots" data-runs="ok:20" role="img" aria-label="20 of 20 succeeded"></div>
+      <div class="n">20/20<small>84 to 100%</small></div>
+
+      <div class="gap"></div>
+
+      <div class="grp">Sim-to-Real<small>Twin renders only, zero real images</small></div>
+      <div class="cond">Static socket</div>
+      <div class="dots" data-runs="ok:20" role="img" aria-label="20 of 20 succeeded"></div>
+      <div class="n">20/20<small>84 to 100%</small></div>
+
+      <div class="sp"></div>
+      <div class="cond">Moving deck</div>
+      <div class="dots" data-runs="ok:19,no:1" role="img" aria-label="19 of 20 succeeded, 1 failed"></div>
+      <div class="n">19/20<small>76 to 99%</small></div>
+    </div>
+    <p class="small muted col">The small numbers are Wilson 95% intervals: 20/20 means "at least 84%", not "always". Models: <code>act_real_v4</code> (80k steps) and <code>act_twin_v4</code> (a 20k-step model trained on twin renders, fine-tuned 1k steps on renders from the recalibrated cameras). Raw numbers: <a href="https://github.com/gawbi/plugbot/blob/main/outputs/real_results.json">real_results.json</a>.</p>
+
+    <h3>Simulation: predict the socket, do not chase it</h3>
+    <p class="col">When to insert into a moving socket was studied separately in MuJoCo, with three strategies on the same waves. Static goes to where it first saw the socket. Follow chases where the socket is now. Predict looks 0.3&nbsp;s ahead and inserts when the socket goes calm.</p>
+    <figure class="strip">
+      <div class="strip-labels">
+        <div><b>Static</b><span class="fail">Fail: hit the hull outside the socket</span></div>
+        <div><b>Follow</b><span class="fail">Fail: hit the hull outside the socket</span></div>
+        <div><b>Predict</b><span class="win">Inserted</span></div>
+      </div>
+      <img src="../assets/mujoco_same_wave.jpg" width="1920" height="480" alt="On the same wave, static and follow hit the hull while predict inserts">
+      <figcaption>The final moment of each strategy on the same wave (6&nbsp;cm model wave, seed 1002). MuJoCo simulation.</figcaption>
+    </figure>
+
+    <div class="paired sim">
+      <div class="dots" data-runs="ok:45,pale:43,ring:3,no:9" role="img" aria-label="Of 100 identical waves: only predict succeeded 45, both 43, only follow 3, neither 9"></div>
+      <div>
+        <ul class="legend">
+          <li><span class="dot ok"></span><b>45</b> only predict succeeded</li>
+          <li><span class="dot pale"></span><b>43</b> both succeeded</li>
+          <li><span class="dot ring"></span><b>3</b> only follow succeeded</li>
+          <li><span class="dot no"></span><b>9</b> neither</li>
+        </ul>
+        <p class="small muted">Predict and follow paired on the same 100 waves (seeds 1000 to 1099, 6&nbsp;cm model wave). Success rates: predict 88%, follow 46%, static 25%.</p>
+      </div>
+    </div>
+
+    <div class="scroll">
+    <table class="tbl">
+      <thead><tr><th>Model wave</th><th class="r">Static</th><th class="r">Follow</th><th class="r">Predict</th><th class="r">Only predict / only follow</th></tr></thead>
+      <tbody>
+        <tr><td>4&nbsp;cm</td><td class="r">76%</td><td class="r">87%</td><td class="r"><strong>99%</strong></td><td class="r">13 / 1</td></tr>
+        <tr><td>6&nbsp;cm</td><td class="r">25%</td><td class="r">46%</td><td class="r"><strong>88%</strong></td><td class="r">45 / 3</td></tr>
+        <tr><td>8&nbsp;cm</td><td class="r">12%</td><td class="r">24%</td><td class="r"><strong>60%</strong></td><td class="r">40 / 4</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small muted col">100 trials per cell. A 6&nbsp;cm model wave is about 0.6 m at full scale, assuming 1:10 Froude scaling. Predict also hits the socket far less (contact force p95 about 37&nbsp;N vs 311&nbsp;N; rigid-contact model, compare only). This controller exists only in simulation; the real ACT policy does not use it yet.</p>
+  </section>
+
+  <section id="problem" class="col">
+    <h2>Problem: ships are still plugged in by hand</h2>
+    <p>Robots already plug in electric cars, because a parked car stands still. A ship at berth keeps moving with the waves, and its shore-power cable is still connected by people. When the connection depends on hands and site conditions, it fails: at Busan New Port, 9 of the 19 ships that applied for shore power in its first year failed to connect, mostly because they could not berth exactly at the outlet, and the high-voltage cable could not be connected in rain (<a href="https://www.fntoday.co.kr/news/articleView.html?idxno=227118">Finance Today, 2020-08-05, Korean</a>).</p>
+    <p>So the question was: <strong>can a cheap robot arm learn to plug into a moving socket from human demonstrations, and, when real data is scarce, from simulator images alone?</strong></p>
+  </section>
+
+  <section id="approach">
+    <h2>Approach: one skill, three ways to learn it</h2>
+    <figure class="diagram">
+      <a class="lt" href="../portfolio/img/arch_pipeline.png"><img src="../portfolio/img/arch_pipeline.png" width="2520" height="1280" alt="Three learning paths converge on one real-robot evaluation"></a>
+      <a class="dk" href="../portfolio/img/arch_pipeline_dark.png"><img src="../portfolio/img/arch_pipeline_dark.png" width="2520" height="1280" alt="Three learning paths converge on one real-robot evaluation"></a>
+      <figcaption>Dashed boxes are simulation steps; purple is the Sim-to-Real path. Select a diagram to open it at full size.</figcaption>
+    </figure>
+    <div class="col">
+      <p><strong>A. Real-to-Real.</strong> A person moves the SO-101 leader arm and the follower arm copies it. 134 recorded demonstrations (94 on a static socket, 40 on the shaking deck) train an ACT policy, which sees two cameras (front and wrist) plus the joint state and outputs the next chunk of actions.</p>
+      <p><strong>B. Sim-to-Real.</strong> The same human demonstrations are replayed joint by joint inside an Isaac Sim copy of the photobox (a digital twin), and only the camera images are rendered. Joint states and actions stay real; only the pixels are simulated. Lighting, materials and camera pose are randomized, and blur, noise and latency are added. This policy never sees a real photo, and it inserts on the real arm.</p>
+      <p><strong>C. Heterogeneous teleoperation (simulation).</strong> The small leader arm drives a full-size UR10e at a ferry-side socket in Isaac Sim: the pose is taken relative to the socket, scaled by 5 and solved with Lula IK. It shows how the same demonstrations could drive an industrial arm. It is a visualization, not trained and not on real hardware.</p>
+      <p><strong>D. When to insert (simulation study).</strong> The MuJoCo comparison above: static, follow and predict on identical waves.</p>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2>System architecture</h2>
+    <figure class="diagram">
+      <a class="lt" href="../portfolio/img/arch_overview.png"><img src="../portfolio/img/arch_overview.png" alt="System overview: real hardware, laptop software, simulation"></a>
+      <a class="dk" href="../portfolio/img/arch_overview_dark.png"><img src="../portfolio/img/arch_overview_dark.png" alt="System overview: real hardware, laptop software, simulation"></a>
+    </figure>
+    <figure class="diagram">
+      <a class="lt" href="../portfolio/img/arch_runtime.png"><img src="../portfolio/img/arch_runtime.png" alt="Runtime: processes, ports, devices and shared files"></a>
+      <a class="dk" href="../portfolio/img/arch_runtime_dark.png"><img src="../portfolio/img/arch_runtime_dark.png" alt="Runtime: processes, ports, devices and shared files"></a>
+    </figure>
+    <div class="col">
+      <p>Design decisions, and why:</p>
+      <ul class="decisions">
+        <li><strong>One start at a time.</strong> The recording GUI (FastAPI) launches recording, policy runs and the shaking deck as child processes behind one lock, so a double click can never have two processes driving the same servos.</li>
+        <li><strong>Devices by serial number.</strong> Ports and cameras are opened through <code>/dev/serial/by-id</code> and <code>/dev/v4l/by-id</code>, so replugging the USB hub never swaps the leader and the follower.</li>
+        <li><strong>Previews through files.</strong> Only the recording process opens the cameras. It writes the latest frames to <code>/dev/shm</code>; the GUI and the audience screen read those files.</li>
+        <li><strong>Safety in thin layers.</strong> A wrapper around LeRobot adds a gripper command floor (where the printed cover blocks the jaw) and retries torque writes three times. The shaking deck stops when its controlling process dies.</li>
+        <li><strong>Judgement is data.</strong> Every autonomous run is logged with joints and frames, and a person's success/fail button writes <code>result.json</code>. Every real-robot number on this page is tallied from those files.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="problems">
+    <h2>Hard problems and how I solved them</h2>
+
+    <div class="story">
+      <h3>The twin-trained model stopped 5&nbsp;mm short of the socket</h3>
+      <div class="col">
+        <p>On the real arm, the first Sim-to-Real model jammed the plug in the same place every time: about 5&nbsp;mm low and to the right of the socket. My first guess was that it had never seen a recovery, so I built a tool that synthesizes miss, hold, retreat and realign motions with IK. But more training kept missing in the same direction. That is a bias, not random error, so I stopped adding data and suspected that <strong>the virtual cameras did not match the real ones</strong>.</p>
+        <p>Side by side, real and twin frames of the inserted pose showed both cameras off in position and angle. An automatic search that maximized the overlap (IoU) of the white socket and the purple cover picked nonsense twice: the render updated one frame late, and the metric did not capture the error. So I built a mode (<code>--try_cams</code>) that renders a grid of candidate cameras next to the real frame and chose by eye. After re-rendering with the calibrated cameras and fine-tuning 1k steps, the model inserted 20/20 on the static socket and 19/20 on the moving deck. The recovery demos were not used in the final model.</p>
+      </div>
+      <figure>
+        <img src="../assets/twin_vs_real.png" width="1280" height="514" alt="Real camera frames and calibrated Isaac twin frames of the inserted pose, side by side">
+        <figcaption>Real and calibrated twin frames of the inserted pose (wrist and side cameras).</figcaption>
+      </figure>
+    </div>
+
+    <div class="story">
+      <h3>Fitting the simulator longer made the real robot worse</h3>
+      <p class="col">Training longer on the same data hurt on the real arm. The 1k-step checkpoint inserted; the 2k, 3k and 4k checkpoints each failed their one try. With one try each, that is a signal rather than a conclusion: fitting the renders more closely moved the policy away from the real camera. The shortest-trained model went to the judged runs.</p>
+    </div>
+
+    <div class="story">
+      <h3>Teleoperation dropped the moment the follower moved</h3>
+      <p class="col">The kernel log showed the USB devices re-enumerating dozens of times: the hub reset whenever the arm drew current. The arm boards now plug straight into the laptop, and the hub carries only the cameras.</p>
+    </div>
+
+    <div class="story">
+      <h3>The gripper servo overloaded and killed recording</h3>
+      <p class="col">To let the wrist camera see the contact point, I designed a CAD gripper cover that moves the plug 52 to 58&nbsp;mm forward (walls thickened from 2.35 to 4.4&nbsp;mm after review). But the cover stops the jaw at about 8/100 while the leader kept commanding 0, so the servo pushed against it. Gripper commands are now clamped at 6 in both recording and policy runs.</p>
+    </div>
+
+    <div class="col">
+      <h3>Smaller ones</h3>
+      <ul>
+        <li>Camera <code>Failed to open</code> before recording: a leftover preview process still held the device. Preview now runs as its own process, and <code>fuser</code> checks the device is free before recording.</li>
+        <li>The front camera slowly rotated over hours: per-episode image shift measured by phase correlation (+52&nbsp;px) exposed it, and an overlay tool realigns it.</li>
+        <li>Occasional <code>no status packet</code> on motor 4 at startup: torque writes are retried up to 3 times.</li>
+      </ul>
+      <p>All 19 incidents are logged with cause and fix in <a href="https://github.com/gawbi/plugbot/blob/main/docs/troubleshooting.md">troubleshooting.md</a> (Korean).</p>
+    </div>
+  </section>
+
+  <section id="method" class="col">
+    <h2>Experiment design</h2>
+    <ul>
+      <li><strong>Paired comparisons.</strong> The three strategies share wave seeds, so outcomes can be matched on identical waves ("only predict succeeded 45 times, only follow 3 times"), which says more than comparing two averages.</li>
+      <li><strong>Uncertainty with every rate.</strong> Success rates come with Wilson 95% intervals; 20/20 is reported as "at least 84%", not "always".</li>
+      <li><strong>A second physics engine.</strong> The MuJoCo study was ported to Isaac Sim (PhysX). Predict stayed high (97% at 6&nbsp;cm), but follow reached 100% too, so predict-beats-follow was <strong>not reproduced</strong> in Isaac. Swapping in the MuJoCo servo model did not change it, and the root cause is still open. I recorded this as a physics-engine gap and made the real-robot judgement the final evidence.</li>
+      <li><strong>Stress-testing real-world conditions.</strong> In MuJoCo, camera latency (0.05 to 0.2&nbsp;s), noise, calibration error and servo stiffness were varied; predict mostly stayed above 90% (4&nbsp;cm waves, 30 trials).</li>
+      <li><strong>Human judgement as a record.</strong> Success is a person's button press saved to a file, and every number is tallied from those files: 106 logged real runs.</li>
+    </ul>
+  </section>
+
+  <section id="next" class="col">
+    <h2>Limitations and next research</h2>
+    <ul>
+      <li>Real tests used a model shaking deck aboard the ship, not a real ship's socket. Twenty trials per cell bound the success rate from below; they do not prove reliability.</li>
+      <li>The motion predictor is validated only in simulation, and the real policy reacts to images. Next: <strong>add socket-motion prediction to the real policy</strong>.</li>
+      <li>The camera calibration ended up manual. Next: <strong>automate twin calibration</strong> by closing the gap between real and rendered frames.</li>
+      <li>The UR10e is a kinematic visualization without contact physics.</li>
+      <li>The 5-axis SO-101 cannot rotate the plug about its pin axis when inserting sideways; keyed multi-pin connectors need a 6-axis arm or a mechanical guide.</li>
+      <li>The cause of the MuJoCo and Isaac disagreement (the physics-engine gap) is still to be found.</li>
+    </ul>
+  </section>
+
+  <section id="role" class="col">
+    <h2>My role, the team, and how I worked</h2>
+    <p>Team Land2Sea, 4 people.</p>
+    <ul class="team">
+      <li><strong>Gwangbin Kim (김광빈), team lead</strong>: system architecture, robot software and safety, ACT training and evaluation, MuJoCo study, Isaac port and digital twin, hardware integration design (gripper cover CAD, camera placement), measurement and the problem log. All commits in the repository.</li>
+      <li><strong>Seon-gi Cho (조선기)</strong>: hardware build (booth, shaking deck, camera mounts, socket alignment)</li>
+      <li><strong>Dawon Na (나다원)</strong>: pitch and presentation</li>
+      <li><strong>Jueun Lee (이주은)</strong>: market, pricing and business-model research</li>
+    </ul>
+    <p>I used an AI coding agent (Claude Code) as a pair programmer, with a clear split:</p>
+    <ul>
+      <li><strong>What I decided</strong>: the problem and layout (sideways insertion at the hull), the three-path direction, experiment design, what counts as success, hardware debugging, and changing course from what I saw on the real arm (camera calibration instead of recovery demos).</li>
+      <li><strong>What the agent did</strong>: most of the code under that direction (recording GUI, twin rendering, dataset conversion, experiment scripts, figures).</li>
+      <li><strong>How I verified</strong>: every number is tallied from run logs and kept in one fact sheet. The agent's interpretations were checked against the logs too. For example, its explanation that follow reached 100% in Isaac "because collisions are not counted" was wrong: counting collisions as failures, follow is still 100%. It was corrected.</li>
+    </ul>
+    <p>That is how four subsystems (real-robot learning, digital twin, simulation study, industrial-arm teleop) came together in 11 days: 77 Python files, 11,332 lines and 113 commits on main as of 11-10.</p>
+  </section>
+
+  <section id="timeline">
+    <h2>Timeline</h2>
+    <ol class="timeline">
+      <li><time>10/31</time><span>First commit; sideways insertion at the hull chosen</span></li>
+      <li><time>11/1</time><span>First Isaac Sim 5.1 runs, 30-trial experiments</span></li>
+      <li><time>11/2</time><span>ACT trained on Isaac demos (20/20 inside Isaac), UR10e scale-up visualization, real kit started</span></li>
+      <li><time>11/3 to 5</time><span>Camera and gripper cover fixes, teleop recording, recording GUI</span></li>
+      <li><time>11/6</time><span>First autonomous real insertion (static socket), 56 commits that day</span></li>
+      <li><time>11/8</time><span>Boarding; baseline tag <code>boarding-20261108</code></span></li>
+      <li><time>11/9</time><span>Real-robot tests aboard; photobox Isaac twin built</span></li>
+      <li><time>11/10</time><span>Twin cameras calibrated, Sim-to-Real success, final results, submission</span></li>
+      <li class="end"><time>Result</time><span>Joint 2nd place of 107 teams, Busan Techno Park President's Award</span></li>
+    </ol>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Gwangbin Kim, team Land2Sea</span>
+    <a href="https://github.com/gawbi/plugbot">GitHub repository</a>
+    <a href="https://github.com/gawbi/plugbot/blob/main/docs/portfolio/facts.md">Where the numbers come from</a>
+    <a href="../" hreflang="ko" lang="ko">한국어</a>
+  </div>
+</footer>
+</body>
+</html>

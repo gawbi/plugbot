@@ -61,7 +61,7 @@ Measured aboard the ship on 2026-11-09 and 11-10, two laptops combined. Models: 
 
 ### Simulation: predict the socket, do not chase it
 
-<img src="outputs/mujoco_compare_hs6_final.png" width="900" alt="Same wave in MuJoCo: static and follow hit the hull, predict inserts">
+<img src="outputs/mujoco_compare_hs6_final_en.png" width="900" alt="Same wave in MuJoCo: static and follow hit the hull, predict inserts">
 
 | Model wave height | Static | Follow | **Predict** | Only predict succeeded / only follow succeeded |
 |---|---|---|---|---|

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlugBot 김광빈</title>
+<meta name="description" content="흔들리는 선박 소켓에 스스로 꽂는 저가형 로봇팔. 사람 시범과 Isaac Sim 디지털 트윈으로 학습해 배 위 실물 로봇으로 검증했다. 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 공동 2위.">
+<meta property="og:title" content="PlugBot: 흔들리는 선박 소켓에 스스로 꽂는 로봇팔">
+<meta property="og:description" content="Real-to-Real 40/40, Sim-to-Real 39/40(실물 사진 0장). 본선 공동 2위, 부산테크노파크 원장상(107팀).">
+<link rel="alternate" hreflang="en" href="en/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/site.js"></script>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="name" href="#top">PlugBot <span class="muted">김광빈</span></a>
+    <nav aria-label="페이지 안 이동">
+      <a href="#results">결과</a>
+      <a href="#approach">접근</a>
+      <a href="#architecture">구조</a>
+      <a href="#problems">문제와 해결</a>
+      <a href="#method">실험 설계</a>
+      <a href="#role">역할</a>
+    </nav>
+    <div class="tools">
+      <a href="en/" hreflang="en" lang="en">English</a>
+      <button class="theme" type="button" aria-label="어두운 화면 전환" aria-pressed="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <h1>흔들리는 선박 소켓에 스스로 꽂는 로봇팔</h1>
+      <p class="lede">사람 시범으로 배우고, 시뮬레이터 화면만으로도 배워서, 배 위에서 실물 로봇으로 검증했다.</p>
+    </div>
+    <dl class="facts">
+      <dt>역할</dt><dd>팀장(4명). 시스템 설계와 소프트웨어 전체, 학습, 시뮬레이션, 하드웨어 통합 설계</dd>
+      <dt>기간</dt><dd>2026-10-31 ~ 11-10, 11일. 마지막 3일은 부산~오사카 선상 본선</dd>
+      <dt>수상</dt><dd>2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 공동 2위, (재)부산테크노파크 원장상(107팀 참가)</dd>
+      <dt>도구</dt><dd>LeRobot ACT, PyTorch, Isaac Sim 5.1, MuJoCo, FastAPI, OpenCV, CadQuery</dd>
+    </dl>
+  </div>
+
+  <div class="links">
+    <a href="https://github.com/gawbi/plugbot">GitHub 저장소</a>
+    <a href="https://github.com/gawbi/plugbot/blob/main/docs/portfolio/case_study_ko.md">사례 연구 원문</a>
+    <a href="https://github.com/gawbi/plugbot/blob/main/docs/troubleshooting.md">문제 기록 19건</a>
+  </div>
+
+  <figure class="hero-media">
+    <img src="assets/hero_three_paths.gif" width="1000" height="300" alt="왼쪽: 사람 시범으로 배운 실물 팔이 흔들리는 소켓에 꽂는다. 가운데: 시뮬레이터 화면만으로 배운 실물 팔이 흔들리는 소켓에 꽂는다. 오른쪽: 같은 동작을 Isaac Sim 안의 실제 크기 UR10e로.">
+    <figcaption>왼쪽과 가운데는 실물 SO-101이 학습한 ACT 정책으로 흔들림 갑판의 소켓에 꽂는 장면이다. 왼쪽은 사람 시범으로, 가운데는 Isaac 트윈 렌더로만 배웠다. 오른쪽은 Isaac Sim 운동학 시각화다.</figcaption>
+  </figure>
+
+  <section id="results">
+    <h2>실물 결과</h2>
+    <p class="col">점 하나가 사람이 버튼으로 판정한 자율 실행 한 번이다. 배 위에서 2026-11-09~10에 쟀고, 노트북 두 대의 결과를 합쳤다.</p>
+
+    <div class="ledger">
+      <div class="grp">Real-to-Real<small>사람 원격조종 시범 134개</small></div>
+      <div class="cond">정지 소켓</div>
+      <div class="dots" data-runs="ok:20" role="img" aria-label="20번 중 20번 성공"></div>
+      <div class="n">20/20<small>84~100%</small></div>
+
+      <div class="sp"></div>
+      <div class="cond">흔들림 갑판</div>
+      <div class="dots" data-runs="ok:20" role="img" aria-label="20번 중 20번 성공"></div>
+      <div class="n">20/20<small>84~100%</small></div>
+
+      <div class="gap"></div>
+
+      <div class="grp">Sim-to-Real<small>트윈 렌더만, 실물 사진 0장</small></div>
+      <div class="cond">정지 소켓</div>
+      <div class="dots" data-runs="ok:20" role="img" aria-label="20번 중 20번 성공"></div>
+      <div class="n">20/20<small>84~100%</small></div>
+
+      <div class="sp"></div>
+      <div class="cond">흔들림 갑판</div>
+      <div class="dots" data-runs="ok:19,no:1" role="img" aria-label="20번 중 19번 성공, 1번 실패"></div>
+      <div class="n">19/20<small>76~99%</small></div>
+    </div>
+    <p class="small muted col">작은 숫자는 Wilson 95% 신뢰구간이다. 20/20은 "항상 성공"이 아니라 "성공률 84% 이상"이라는 뜻이다. 모델은 <code>act_real_v4</code>(8만 스텝)와 <code>act_twin_v4</code>(트윈 렌더로 2만 스텝 학습한 모델을 보정 후 렌더로 1천 스텝 추가 학습)다. 원자료는 <a href="https://github.com/gawbi/plugbot/blob/main/outputs/real_results.json">real_results.json</a>에 있다.</p>
+
+    <h3>시뮬레이션: 소켓을 쫓지 말고 예측한다</h3>
+    <p class="col">흔들리는 소켓에 언제 꽂아야 하는지는 MuJoCo로 따로 실험했다. 세 전략을 같은 파도에 넣었다. 정지는 처음 본 위치로 가고, 따라가기는 지금 보이는 위치를 쫓는다. 예측은 0.3초 앞을 내다보고 소켓이 잠잠할 때 꽂는다.</p>
+    <figure class="strip">
+      <div class="strip-labels">
+        <div><b>정지</b><span class="fail">실패: 소켓 밖 선체에 부딪힘</span></div>
+        <div><b>따라가기</b><span class="fail">실패: 소켓 밖 선체에 부딪힘</span></div>
+        <div><b>예측</b><span class="win">꽂힘</span></div>
+      </div>
+      <img src="assets/mujoco_same_wave.jpg" width="1920" height="480" alt="같은 파도에서 정지와 따라가기는 플러그가 선체에 부딪히고, 예측은 소켓에 꽂힌 마지막 장면">
+      <figcaption>같은 파도(모형 파고 6&nbsp;cm, 시드 1002)에서 세 전략의 마지막 순간. MuJoCo 시뮬레이션.</figcaption>
+    </figure>
+
+    <div class="paired sim">
+      <div class="dots" data-runs="ok:45,pale:43,ring:3,no:9" role="img" aria-label="같은 파도 100개 중 예측만 성공 45, 둘 다 성공 43, 따라가기만 성공 3, 둘 다 실패 9"></div>
+      <div>
+        <ul class="legend">
+          <li><span class="dot ok"></span><b>45</b> 예측만 성공</li>
+          <li><span class="dot pale"></span><b>43</b> 둘 다 성공</li>
+          <li><span class="dot ring"></span><b>3</b> 따라가기만 성공</li>
+          <li><span class="dot no"></span><b>9</b> 둘 다 실패</li>
+        </ul>
+        <p class="small muted">모형 파고 6&nbsp;cm, 같은 시드 1000~1099의 파도 100개에서 예측과 따라가기를 짝지어 본 결과다. 성공률은 예측 88%, 따라가기 46%, 정지 25%다.</p>
+      </div>
+    </div>
+
+    <div class="scroll">
+    <table class="tbl">
+      <thead><tr><th>모형 파고</th><th class="r">정지</th><th class="r">따라가기</th><th class="r">예측</th><th class="r">예측만 / 따라가기만 성공</th></tr></thead>
+      <tbody>
+        <tr><td>4&nbsp;cm</td><td class="r">76%</td><td class="r">87%</td><td class="r"><strong>99%</strong></td><td class="r">13 / 1</td></tr>
+        <tr><td>6&nbsp;cm</td><td class="r">25%</td><td class="r">46%</td><td class="r"><strong>88%</strong></td><td class="r">45 / 3</td></tr>
+        <tr><td>8&nbsp;cm</td><td class="r">12%</td><td class="r">24%</td><td class="r"><strong>60%</strong></td><td class="r">40 / 4</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small muted col">칸마다 100회. 모형 파고 6 cm는 축척 1:10을 가정하면 실선 약 0.6 m다. 예측은 소켓도 덜 친다(접촉력 p95 약 37&nbsp;N 대 311&nbsp;N, 강체 접촉 모델이라 비교로만 본다). 이 예측 제어기는 시뮬레이션에만 있고, 실물 ACT 정책은 아직 쓰지 않는다.</p>
+  </section>
+
+  <section id="problem" class="col">
+    <h2>문제: 배는 아직 사람이 꽂는다</h2>
+    <p>전기차 충전구는 이미 로봇이 꽂는다. 차가 서 있기 때문이다. 부두에 댄 배는 파도에 계속 흔들리고, 육상전원 케이블은 아직 사람이 연결한다. 연결이 사람 손과 현장 조건에 달려 있으니 실패도 난다. 부산 신항 육상전원은 첫해 신청한 19척 중 9척이 연결에 실패했다. 대부분 전원 설비 자리에 배를 정확히 대지 못했고, 비가 오면 고압 케이블을 꽂지 못했다(<a href="https://www.fntoday.co.kr/news/articleView.html?idxno=227118">파이낸스투데이, 2020-08-05</a>).</p>
+    <p>그래서 질문을 이렇게 잡았다. <strong>흔들리는 소켓에 꽂는 기술을 값싼 로봇팔이 사람 시범으로 배울 수 있나? 실물 데이터가 부족하면 시뮬레이터 화면만으로도 배울 수 있나?</strong></p>
+  </section>
+
+  <section id="approach">
+    <h2>접근: 하나의 기술, 세 갈래 학습</h2>
+    <figure class="diagram">
+      <a class="lt" href="portfolio/img/arch_pipeline.png"><img src="portfolio/img/arch_pipeline.png" width="2520" height="1280" alt="세 갈래 학습 경로가 하나의 실물 평가로 모인다"></a>
+      <a class="dk" href="portfolio/img/arch_pipeline_dark.png"><img src="portfolio/img/arch_pipeline_dark.png" width="2520" height="1280" alt="세 갈래 학습 경로가 하나의 실물 평가로 모인다"></a>
+      <figcaption>점선은 시뮬레이션 단계, 보라는 Sim-to-Real 경로다. 그림을 누르면 원본 크기로 열린다.</figcaption>
+    </figure>
+    <div class="col">
+      <p><strong>A. Real-to-Real.</strong> 사람이 SO-101 리더 팔을 움직이면 팔로워 팔이 따라 한다. 이렇게 녹화한 시범 134개(정지 소켓 94, 흔들림 갑판 40)로 ACT 정책을 학습했다. 정책은 카메라 두 대(앞, 손목)와 관절 상태를 보고 다음 동작 묶음을 낸다.</p>
+      <p><strong>B. Sim-to-Real.</strong> 같은 사람 시범을 Isaac Sim 안의 포토박스 복제본(디지털 트윈)에서 관절 단위로 다시 재생하고, 카메라 화면만 렌더했다. 관절 상태와 동작은 실물 그대로이고 화면만 시뮬레이션이다. 조명, 재질, 카메라 흔들림을 무작위로 바꾸고 흐림, 잡음, 지연 같은 화질 손상을 더했다. 이 정책은 실물 사진을 한 장도 보지 않고 실물 팔로 꽂았다.</p>
+      <p><strong>C. 이종 원격조종(시뮬레이션).</strong> 작은 리더 팔로 Isaac Sim 안의 실제 크기 UR10e를 움직여 페리 옆 소켓에 꽂는다. 소켓 기준 자세를 5배 확대하고 Lula IK로 푼다. 같은 시범으로 산업용 팔을 움직일 수 있는지 보여 주는 시각화이고, 학습이나 실물 하드웨어는 아니다.</p>
+      <p><strong>D. 언제 꽂을지(시뮬레이션 연구).</strong> 위의 MuJoCo 비교다. 정지, 따라가기, 예측을 같은 파도에서 겨뤘다.</p>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2>시스템 아키텍처</h2>
+    <figure class="diagram">
+      <a class="lt" href="portfolio/img/arch_overview.png"><img src="portfolio/img/arch_overview.png" alt="시스템 개요: 실물 하드웨어, 노트북 소프트웨어, 시뮬레이션"></a>
+      <a class="dk" href="portfolio/img/arch_overview_dark.png"><img src="portfolio/img/arch_overview_dark.png" alt="시스템 개요: 실물 하드웨어, 노트북 소프트웨어, 시뮬레이션"></a>
+    </figure>
+    <figure class="diagram">
+      <a class="lt" href="portfolio/img/arch_runtime.png"><img src="portfolio/img/arch_runtime.png" alt="실행 구조: 프로세스, 포트, 장치, 공유 파일"></a>
+      <a class="dk" href="portfolio/img/arch_runtime_dark.png"><img src="portfolio/img/arch_runtime_dark.png" alt="실행 구조: 프로세스, 포트, 장치, 공유 파일"></a>
+    </figure>
+    <div class="col">
+      <p>설계 결정과 이유:</p>
+      <ul class="decisions">
+        <li><strong>시작은 한 번에 하나만.</strong> 녹화 화면(FastAPI)은 녹화, 정책 실행, 흔들림 갑판을 자식 프로세스로 띄우고 하나의 잠금 뒤에 둔다. 버튼을 두 번 눌러도 두 프로세스가 같은 서보를 잡지 않는다.</li>
+        <li><strong>장치는 시리얼 번호로.</strong> 포트와 카메라를 <code>/dev/serial/by-id</code>, <code>/dev/v4l/by-id</code>로 연다. USB 허브를 다시 꽂아도 리더와 팔로워가 바뀌지 않는다.</li>
+        <li><strong>미리보기는 파일로.</strong> 카메라는 녹화 프로세스만 연다. 최신 화면을 <code>/dev/shm</code>에 쓰고, 녹화 화면과 관객용 화면은 그 파일을 읽는다.</li>
+        <li><strong>안전 장치는 얇게.</strong> LeRobot을 감싸서 그리퍼 명령 하한(인쇄 덮개가 집게를 막는 지점)과 토크 쓰기 3회 재시도를 넣었다. 흔들림 갑판은 제어 프로세스가 죽으면 멈춘다.</li>
+        <li><strong>판정은 데이터로.</strong> 자율 실행마다 관절과 화면을 남기고, 사람이 성공/실패 버튼을 누르면 <code>result.json</code>이 생긴다. 이 페이지의 실물 숫자는 그 파일들을 집계한 것이다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="problems">
+    <h2>어려웠던 문제와 해결</h2>
+
+    <div class="story">
+      <h3>트윈으로 배운 모델이 소켓 5&nbsp;mm 앞에서 멈췄다</h3>
+      <div class="col">
+        <p>Sim-to-Real 첫 모델은 실물에서 매번 같은 곳, 소켓 오른쪽 아래 약 5 mm에 플러그를 박고 멈췄다. 처음에는 빗나간 뒤 다시 꽂는 회복 시범이 없어서라고 보고, IK로 빗나감, 멈춤, 후퇴, 재정렬을 합성하는 도구를 만들었다. 그런데 학습을 더 돌려도 빗나가는 방향이 늘 같았다. 무작위 실수가 아니라 치우침이었다. 그래서 데이터 양이 아니라 <strong>가상 카메라가 실물과 다르다</strong>고 의심했다.</p>
+        <p>꽂힌 순간의 실물 화면과 트윈 화면을 나란히 놓고 보니 두 카메라 모두 위치와 각도가 어긋나 있었다. 흰 소켓과 보라 덮개 영역의 겹침(IoU)이 가장 큰 카메라 값을 찾는 자동 탐색은 두 번 엉뚱한 값을 골랐다. 렌더가 한 박자 늦게 갱신됐고, 지표도 맞지 않았다. 결국 후보 카메라 여러 개를 실물 화면 옆에 나란히 렌더하는 도구(<code>--try_cams</code>)를 만들어 눈으로 골랐다. 보정한 카메라로 다시 렌더하고 1천 스텝을 더 학습한 모델은 정지 20/20, 흔들림 19/20으로 꽂았다. 회복 시범은 최종 모델에 쓰지 않았다.</p>
+      </div>
+      <figure>
+        <img src="assets/twin_vs_real.png" width="1280" height="514" alt="꽂힌 순간의 실물 화면과 보정한 Isaac 트윈 화면을 나란히 놓은 비교">
+        <figcaption>꽂힌 순간의 실물 화면과 보정한 트윈 화면(손목, 옆).</figcaption>
+      </figure>
+    </div>
+
+    <div class="story">
+      <h3>시뮬레이션에 더 맞추면 실물에서 나빠졌다</h3>
+      <p class="col">같은 데이터로 학습만 더 하자 실물 결과가 나빠졌다. 1천 스텝 체크포인트는 꽂았고, 2천, 3천, 4천 스텝은 각 1회 시도에서 모두 실패했다. 시도 수가 적어 결론보다는 신호로 본다. 렌더 화면에 더 맞출수록 실물 카메라에서 멀어진다는 뜻으로 읽고, 가장 짧게 학습한 모델로 판정을 받았다.</p>
+    </div>
+
+    <div class="story">
+      <h3>팔로워가 움직이는 순간 원격조종이 끊겼다</h3>
+      <p class="col">커널 로그에 USB 장치가 수십 번 다시 잡힌 기록이 있었다. 팔이 전류를 당길 때마다 USB 허브가 리셋되고 있었다. 팔 제어 보드는 노트북에 바로 꽂고, 허브에는 카메라만 남겼다.</p>
+    </div>
+
+    <div class="story">
+      <h3>그리퍼 서보 과부하로 녹화가 죽었다</h3>
+      <p class="col">손목 카메라가 접점을 보게 하려고 플러그를 52~58&nbsp;mm 앞으로 내미는 그리퍼 덮개를 CAD로 설계해 인쇄했다(검토 뒤 벽 두께 2.35 → 4.4&nbsp;mm). 그런데 덮개가 집게를 약 8/100에서 막는데 리더 팔은 0을 명령해 서보가 계속 힘을 썼다. 녹화와 정책 실행 양쪽에서 그리퍼 명령이 6 아래로 내려가지 않게 막았다.</p>
+    </div>
+
+    <div class="col">
+      <h3>그 밖에</h3>
+      <ul>
+        <li>녹화 전 카메라 열기 실패: 남은 미리보기 프로세스가 장치를 잡고 있었다. 미리보기를 별도 프로세스로 두고, 녹화 전에 <code>fuser</code>로 비었는지 확인한다.</li>
+        <li>앞 카메라가 몇 시간에 걸쳐 조금씩 돌아갔다: 에피소드마다 화면 이동량을 위상 상관으로 재서(+52&nbsp;px) 드러냈고, 겹쳐 보며 다시 맞추는 도구를 만들었다.</li>
+        <li>시작할 때 4번 모터에서 가끔 <code>no status packet</code>: 토크 쓰기를 최대 3회 재시도한다.</li>
+      </ul>
+      <p>원인과 해결을 적은 문제 기록은 모두 19건이다(<a href="https://github.com/gawbi/plugbot/blob/main/docs/troubleshooting.md">troubleshooting.md</a>).</p>
+    </div>
+  </section>
+
+  <section id="method" class="col">
+    <h2>실험을 어떻게 설계했나</h2>
+    <ul>
+      <li><strong>짝 비교.</strong> 세 전략이 같은 파도 시드를 쓴다. 그래서 "예측만 성공 45번, 따라가기만 성공 3번"처럼 같은 파도에서 결과를 맞대어 볼 수 있다. 평균만 비교하는 것보다 차이가 분명하다.</li>
+      <li><strong>비율마다 불확실성.</strong> 성공률에는 Wilson 95% 신뢰구간을 붙인다. 20/20은 "항상 성공"이 아니라 "84% 이상"이라고 쓴다.</li>
+      <li><strong>두 번째 물리 엔진.</strong> MuJoCo 실험을 Isaac Sim(PhysX)으로 옮겼다. 예측은 높게 남았지만(6 cm에서 97%) 따라가기도 100%가 나와서, 예측이 낫다는 결과는 Isaac에서 <strong>재현되지 않았다</strong>. Isaac의 서보 모델을 MuJoCo 값으로 바꿔도 같았다. 원인은 아직 찾지 못했다. 이것을 물리 엔진 갭으로 그대로 기록했고, 그래서 실물 판정을 최종 근거로 삼았다.</li>
+      <li><strong>실물 조건 흔들기.</strong> MuJoCo에서 카메라 지연(0.05~0.2&nbsp;s), 잡음, 보정 오차, 서보 강성을 바꿔 보았다. 예측은 대체로 90% 이상을 지켰다(파고 4&nbsp;cm, 30회).</li>
+      <li><strong>사람 판정도 기록으로.</strong> 성공 여부는 사람이 버튼으로 남기고, 숫자는 그 파일에서만 집계한다. 실물 실행 기록은 모두 106회다.</li>
+    </ul>
+  </section>
+
+  <section id="next" class="col">
+    <h2>한계와 다음 연구</h2>
+    <ul>
+      <li>실물 시험은 배 위에 놓은 흔들림 갑판(모형)으로 했다. 실제 선박 소켓이 아니다. 칸마다 20회라 성공률의 아래쪽 한계를 보일 뿐 신뢰성을 증명하지는 않는다.</li>
+      <li>예측 제어기는 시뮬레이션에서만 검증했다. 실물 정책은 화면을 보고 반응한다. 다음 단계는 <strong>실물 정책에 소켓 움직임 예측을 붙이는 것</strong>이다.</li>
+      <li>카메라 보정은 결국 손으로 했다. 실물과 트윈 화면의 차이를 자동으로 줄이는 <strong>보정 자동화</strong>가 다음 과제다.</li>
+      <li>UR10e는 접촉 물리 없는 운동학 시각화다.</li>
+      <li>5축 SO-101은 옆으로 꽂을 때 플러그를 핀 축으로 돌릴 수 없다. 핀 여러 개짜리 커넥터에는 6축 팔이나 기구 가이드가 필요하다.</li>
+      <li>Isaac과 MuJoCo의 결과 차이(물리 엔진 갭)의 원인을 찾는 것도 남아 있다.</li>
+    </ul>
+  </section>
+
+  <section id="role" class="col">
+    <h2>내 역할, 팀, 일하는 방식</h2>
+    <p>팀 Land2Sea, 4명.</p>
+    <ul class="team">
+      <li><strong>김광빈(팀장)</strong>: 시스템 아키텍처, 로봇 소프트웨어와 안전 장치, ACT 학습과 평가, MuJoCo 연구, Isaac 이식과 디지털 트윈, 하드웨어 통합 설계(그리퍼 덮개 CAD, 카메라 배치), 측정과 문제 기록. 저장소 커밋 전부.</li>
+      <li><strong>조선기</strong>: 하드웨어 제작(부스, 흔들림 갑판, 카메라 고정, 소켓 정렬)</li>
+      <li><strong>나다원</strong>: 발표 구성과 발표</li>
+      <li><strong>이주은</strong>: 시장, 가격, 사업 모델 조사</li>
+    </ul>
+    <p>AI 코딩 에이전트(Claude Code)를 페어 프로그래머로 썼다. 역할은 이렇게 나눴다.</p>
+    <ul>
+      <li><strong>내가 정한 것</strong>: 문제와 배치(현측에 옆으로 꽂기), 세 갈래 방향, 실험 설계, 무엇을 성공으로 볼지, 하드웨어 디버깅, 실물에서 본 증상으로 방향 바꾸기(회복 시범 대신 카메라 보정).</li>
+      <li><strong>에이전트가 한 것</strong>: 그 방향 아래에서 코드 대부분(녹화 화면, 트윈 렌더, 데이터 변환, 실험 스크립트, 그림).</li>
+      <li><strong>검증 방식</strong>: 모든 숫자는 실행 기록 파일에서 집계하고, 하나의 사실표에만 둔다. 에이전트가 내놓은 해석도 기록과 대조해 고쳤다. 예를 들어 "Isaac에서 따라가기가 100%인 것은 충돌을 세지 않아서"라는 설명은, 충돌을 실패로 세도 100%라서 틀린 것으로 정정했다.</li>
+    </ul>
+    <p>그 결과 하위 시스템 네 개(실물 학습, 디지털 트윈, 시뮬레이션 연구, 산업용 팔 원격조종)를 11일 만에 하나로 묶었다. 규모는 Python 77개 파일, 11,332줄, main 커밋 113개(11/10 기준)다.</p>
+  </section>
+
+  <section id="timeline">
+    <h2>타임라인</h2>
+    <ol class="timeline">
+      <li><time>10/31</time><span>첫 커밋, 현측 옆 꽂기 배치 결정</span></li>
+      <li><time>11/1</time><span>Isaac Sim 5.1 첫 실행, 30회 실험</span></li>
+      <li><time>11/2</time><span>Isaac 시범으로 ACT 학습(시뮬레이션 안 20/20), UR10e 확대 시각화, 실물 키트 시작</span></li>
+      <li><time>11/3~5</time><span>카메라와 그리퍼 덮개 문제 해결, 원격조종 녹화, 녹화 화면</span></li>
+      <li><time>11/6</time><span>실물 첫 자율 꽂기(정지 소켓), 하루 56커밋</span></li>
+      <li><time>11/8</time><span>승선, 기준선 태그 <code>boarding-20261108</code></span></li>
+      <li><time>11/9</time><span>선상 실물 측정, 포토박스 Isaac 트윈 구축</span></li>
+      <li><time>11/10</time><span>트윈 카메라 보정, Sim-to-Real 성공, 최종 결과표, 제출</span></li>
+      <li class="end"><time>결과</time><span>본선 공동 2위, (재)부산테크노파크 원장상(107팀)</span></li>
+    </ol>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>김광빈, 팀 Land2Sea</span>
+    <a href="https://github.com/gawbi/plugbot">GitHub 저장소</a>
+    <a href="https://github.com/gawbi/plugbot/blob/main/docs/portfolio/facts.md">숫자 출처(사실표)</a>
+    <a href="en/" hreflang="en" lang="en">English</a>
+  </div>
+</footer>
+</body>
+</html>
