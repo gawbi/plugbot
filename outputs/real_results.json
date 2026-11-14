@@ -43,7 +43,8 @@
     76.4,
     99.1
    ],
-   "model": "act_twin_v4/001000 (assumed)"
+   "model": "act_twin_v4/001000"
   }
- ]
+ ],
+ "sim_to_real_note": "act_twin_v4/001000 = act_twin_v2 (20k steps, twin renders only) + 1k steps on calibrated twin renders; zero real images in training"
 }

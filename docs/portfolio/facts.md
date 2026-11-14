@@ -11,9 +11,9 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 |---|---|---|---|---|
 | Real-to-Real, 정지 소켓 / static socket | 20/20 (95% CI 84~100%) | ACT `act_real_v4` 80k steps, 사람 원격조종 시범 134개 / 134 human teleop demos | 실물 확인 | `outputs/real_results.json`, `outputs/real_results_chart.png` |
 | Real-to-Real, 흔들림 소켓 / moving socket | 20/20 (84~100%) | 같은 모델, 흔들림 갑판 / same model, servo-driven shaking deck | 실물 확인 | 같음 |
-| Sim-to-Real, 정지 소켓 | 20/20 (84~100%) | ACT `act_twin_v4` 1k steps, Isaac 트윈 렌더만으로 학습(실물 사진 0장) / trained on Isaac twin renders only, zero real images | 실물 확인 | 같음 |
-| Sim-to-Real, 흔들림 소켓 | 19/20 (76~99%) | 같은 모델(가정, 사용자 확인 대기) / same model (assumed) | 실물 확인 | 같음 |
-| 합계 / Totals | R2R 40/40 (91~100%), S2R 39/40 (87~100%) | 두 노트북 합산, 2026-11-10 선상 / two laptops combined, aboard ship | 실물 확인 | 같음 |
+| Sim-to-Real, 정지 소켓 | 20/20 (84~100%) | ACT `act_twin_v4`: 트윈 렌더로만 학습한 `act_twin_v2`(2만 스텝, 보정 전 렌더)에서 보정 후 렌더로 1천 스텝 추가 학습. 실물 사진 0장 / fine-tuned 1k steps on calibrated twin renders from a 20k-step twin-only model; zero real images | 실물 확인 | 같음 |
+| Sim-to-Real, 흔들림 소켓 | 19/20 (76~99%) | 같은 모델(act_twin_v4 1k, 사용자 확인 2026-11-14) / same model | 실물 확인 | 같음 |
+| 합계 / Totals | R2R 40/40 (91~100%), S2R 39/40 (87~100%) | 두 노트북 합산, 2026-11-09~10 선상 / two laptops combined, aboard ship | 실물 확인 | 같음 |
 | 더 학습한 트윈 모델은 실패 / longer sim training failed | 2k, 3k, 4k steps 각 0/1 | 같은 데이터로 학습만 더 함 / same data, more steps | 실물 확인(소수) | `data/rollouts/*/result.json` (tally_rollouts) |
 | 예측 대 따라가기 / predict vs follow, 파고 6 cm | 예측 88% (80~93), 따라가기 46% (37~56), 정지 25% (18~34) | MuJoCo, 같은 시드 1000~1099, 100회 / paired seeds, 100 trials | 시뮬레이션 | `outputs/compare_predict_follow.json` |
 | 짝 비교 / paired outcome, 6 cm | 예측만 성공 45, 따라가기만 성공 3 | 같은 파도 / same wave | 시뮬레이션 | 같음 |
@@ -56,6 +56,6 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 - 개발 방식 / how it was built: AI 코딩 에이전트(Claude Code)를 지휘해 22일 안에 하위 시스템 4개를 통합. 방향, 실험 설계, 판정, 하드웨어 디버깅, 주장 검증은 직접 했다.
 
 ## 5. 규모 / Scale
-- Python 77개 파일, 11,332줄 / 77 files, 11,332 lines; main 113 commits (193 all branches), 2026-10-31 ~ 11-10
+- Python 77개 파일, 11,332줄 / 77 files, 11,332 lines; main 113 commits (193 all branches), 2026-10-31 ~ 11-10 (11일 / 11 days). 발표의 '22일'은 예선부터 센 기간
 - 실물 시범 134개(정지 94, 흔들림 40), 트윈 렌더 에피소드 69개(30,920장면), 실물 실행 기록 106회
 - 문제 기록 19건(원인과 해결) / 19 logged hardware-software incidents: `docs/troubleshooting.md`
