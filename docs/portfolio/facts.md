@@ -3,7 +3,7 @@
 포트폴리오(README, 웹, PDF, 이력서)의 숫자와 주장은 모두 이 표에서만 가져온다. 표에 없는 숫자는 쓰지 않는다.
 Every number in the portfolio (README, web page, PDF, résumé) comes from this sheet only.
 
-상태 / Status: **실물 확인** = real robot, judged by a person · **시뮬레이션** = simulation · **시각화** = kinematic visualization (no contact physics)
+상태 / Status: **실물 확인** = real robot, judged by a person; **시뮬레이션** = simulation; **시각화** = kinematic visualization (no contact physics)
 
 ## 1. 결과 / Results
 
