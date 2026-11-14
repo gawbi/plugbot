@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 from dataclasses import replace
+from importlib import metadata
 from pathlib import Path
 
 import numpy as np
@@ -42,7 +43,8 @@ ap.add_argument("--live-leader", default="", help="실시간 이종 원격조종
                 "GUI 창에서 UR10e가 리더 팔을 따라 움직인다(leader_source.py). Ctrl+C로 끝")
 ap.add_argument("--live-seconds", type=float, default=0, help="--live-leader 실행 시간(s). 0이면 Ctrl+C까지")
 ap.add_argument("--lowmem", action="store_true", help="램 16 GB 노트북용 가벼운 설정(창 960x540, 안티에일리어싱 끔)")
-ap.add_argument("--live-cam", default="/World/CamWide", help="--live-leader GUI 시점(/World/CamWide, /World/CamClose, /World/CamShip)")
+ap.add_argument("--live-cam", default="/World/CamFront", help="--live-leader 왼쪽 화면(/World/CamFront, /World/CamWide, /World/CamClose, /World/CamShip). 오른쪽은 손목 카메라")
+ap.add_argument("--no-guard", action="store_true", help="--live-leader 충돌 방지 끄기(여유만 재서 비교할 때)")
 args = ap.parse_args()
 
 from isaacsim import SimulationApp  # noqa: E402
@@ -50,6 +52,8 @@ from isaacsim import SimulationApp  # noqa: E402
 _cfg = {"headless": args.headless or args.trials > 0, "width": 1280, "height": 720}
 if args.lowmem:  # 시스템 램 16 GB 노트북: 창과 렌더 해상도를 줄이고, 안티에일리어싱을 끈다
     _cfg.update({"width": 960, "height": 540, "anti_aliasing": 0, "renderer": "RaytracedLighting"})
+if args.live_leader:  # 두 화면을 나란히 놓을 창 크기
+    _cfg.update({"window_width": 2 * _cfg["width"], "window_height": _cfg["height"] + 240})
 app = SimulationApp(_cfg)
 
 from isaacsim.core.api import World  # noqa: E402
@@ -78,7 +82,8 @@ CONE_H = CONE_TOP_R - BORE_R
 SOCKET_H = CAP_T + BORE_D + CONE_H
 DEPTH_GOAL = (SOCKET_H - (CAP_T + BORE_D)) + 12e-3 * K_CONN  # 입구에서 보어 안쪽(모형 29 mm × 5)
 
-ROBOT_BASE = np.array([0.0, 0.0, 0.60])  # 부두 위 받침(높이 0.6 m)
+# 부두 위 받침(높이 0.6 m). 실시간 조종은 0.15 m 뒤로: 접은 리더 자세의 목표가 UR10e 어깨 위로 오면 플러그가 팔, 받침과 부딪히고 IK 특이점에 걸린다
+ROBOT_BASE = np.array([-0.15 if args.live_leader else 0.0, 0.0, 0.60])
 ENTRANCE0 = np.array([1.20, 0.0, 1.00])  # 쉴 때 소켓 입구(로봇 앞 1.2 m, 받침보다 0.4 m 위)
 AXIS0 = np.array([-1.0, 0.0, 0.0])  # 소켓 축(입구 바깥, 로봇 쪽)
 HULL_X = ENTRANCE0[0] + SOCKET_H  # 현측 판 면
@@ -93,11 +98,14 @@ P = replace(Params(), latency=0.10 * S, lead=1.0 / 30, ar_window=3.0 * S, gate_s
             timeout=12.0 * S, hold=0.2 * S, hover=0.030 * K_CONN, align_tol=0.004 * K_CONN, descend_speed=0.04 * S,
             depth_goal=DEPTH_GOAL, noise=0.0005 * K_LEN, cam_hz=30.0 / S)
 QD_MAX = 1.5  # 관절 속도 제한(rad/s). UR10e 정격(어깨 120°/s = 2.1 rad/s)보다 느리게
+GUARD_MARGIN = 0.03  # 충돌 방지 여유(m): 구 모델에서 이보다 가까워지는 움직임을 멈춘다
+# 가상 울타리(소켓 좌표계, x 위, z 바깥). 실물 시범의 목표 범위(-0.43~0.10, -0.12~0.10, -0.15~0.64 m, 핀 58°)를 덮고 약간 넓힌 값
+FENCE_LO, FENCE_HI, FENCE_CONE = np.array([-0.50, -0.60, -0.18]), np.array([0.50, 0.60, 0.72]), np.deg2rad(60.0)
 QDD_MAX = 6.0  # 관절 가속도 제한(rad/s²): 산업용 팔처럼 매끄럽게 가속, 감속한다
 KP_JOINT = 6.0  # 관절 목표를 따라가는 속도 이득(1/s)
 TAU_TARGET, TAU_INSERT, TAU_CAPTURED = 0.25, 0.12, 0.08  # 목표 필터 시정수(s): 관측 잡음과 9.5 Hz 계단을 펴서 떨림을 없앤다. 삽입, 포착 뒤는 빠르게
 PLUG_NPZ = HERE / "plug_iec.npz"  # make_plug_mesh.py. --plug simple이면 예전 원통 플러그
-LOCAL_ASSETS = Path.home() / "isaacsim_assets" / "Assets" / "Isaac" / "5.1"  # isaac/scaleup/fetch_assets.py가 받아 둔 곳
+LOCAL_ASSETS = Path.home() / "isaacsim_assets" / "Assets" / "Isaac" / metadata.version("isaacsim")[:3]  # isaac/scaleup/fetch_assets.py가 받아 둔 곳. [ISAAC 6.2] 버전마다 자산 폴더가 다르다
 PLUG_MESH = dict(np.load(PLUG_NPZ)) if args.plug == "iec" else None
 
 
@@ -279,7 +287,8 @@ for y in (-6.0, -2.5, 2.5, 6.0):
     cylinder(f"/World/Fender_{int(y * 10) + 100}", (QUAY_EDGE + 0.18, y, -0.6), 0.18, 1.6, "fender")
 for y in (-8.0, 4.5, 9.0):  # 계선주
     cylinder(f"/World/Bollard_{int(y * 10) + 100}", (QUAY_EDGE - 0.5, y, 0.25), 0.16, 0.5, "fender")
-CABINET = np.array([-0.85, 1.7, 0.0])  # 로봇 뒤 왼쪽(넓은 시점을 가리지 않게)
+# 로봇 뒤 왼쪽(넓은 시점을 가리지 않게). 실시간 조종은 로봇 옆(+y): 팔이 닿지 않고, 뒤에 두면 케이블이 받침을 가로지른다
+CABINET = np.array([-0.10, 2.40, 0.0]) if args.live_leader else np.array([-0.85, 1.7, 0.0])
 box("/World/Cabinet", CABINET + (0, 0, 0.8), (0.5, 0.7, 1.6), "panel")
 box("/World/CabinetTop", CABINET + (0, 0, 1.62), (0.52, 0.72, 0.05), "marking")
 box("/World/CabinetFace", CABINET + (0.255, 0, 1.05), (0.01, 0.5, 0.35), "window")
@@ -350,6 +359,7 @@ def update_cable(p_end, out_dir):
     pts = (1 - u) ** 3 * p0 + 3 * (1 - u) ** 2 * u * p1 + 3 * (1 - u) * u ** 2 * p2 + u ** 3 * p_end
     pts[:, 2] = np.maximum(pts[:, 2], 0.03)  # 부두 바닥 위
     cable.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
+    return pts
 
 
 def set_led(on):
@@ -383,7 +393,8 @@ stage.GetPrimAtPath("/World/UR10e").GetAttribute("xformOp:translate").Set(Gf.Vec
 root = next(p.GetPath().pathString for p in stage.Traverse()
             if p.GetPath().pathString.startswith("/World/UR10e") and p.HasAPI(UsdPhysics.ArticulationRootAPI))
 
-ik = LulaKinematicsSolver(**interface_config_loader.load_supported_lula_kinematics_solver_config("UR10e"))
+LULA_CFG = interface_config_loader.load_supported_lula_kinematics_solver_config("UR10e")
+ik = LulaKinematicsSolver(**LULA_CFG)
 ik.set_robot_base_pose(ROBOT_BASE, np.array([1.0, 0.0, 0.0, 0.0]))
 JOINTS = ik.get_joint_names()
 
@@ -412,7 +423,7 @@ def move_cam(path, pos, look):
     p.GetAttribute("xformOp:orient").Set(look_quat(pos, look))
 
 
-def cam(path, pos, look, focal):
+def cam(path, pos, look, focal, up=(0, 0, 1.0)):
     c = UsdGeom.Camera.Define(stage, path)
     c.CreateFocalLengthAttr(float(focal))
     c.CreateHorizontalApertureAttr(20.955)
@@ -420,7 +431,7 @@ def cam(path, pos, look, focal):
     c.CreateClippingRangeAttr(Gf.Vec2f(0.05, 2000.0))
     z = np.asarray(pos) - np.asarray(look)
     z /= np.linalg.norm(z)
-    x = np.cross([0, 0, 1.0], z)
+    x = np.cross(up, z)
     x /= np.linalg.norm(x)
     y = np.cross(z, x)
     q = Rotation.from_matrix(np.stack([x, y, z], 1)).as_quat()
@@ -436,6 +447,15 @@ CAMS = {"wide": cam("/World/CamWide", *WIDE_PATH[0], 20.0),
         "sea": cam("/World/CamSea", (1.7, -17.0, 3.6), (0.5, 0.0, 1.0), 20.0)}  # 부두와 선체 사이 틈의 연장선, 선미 바깥 바다 위
 if args.livery == "panstar":  # 부두 안쪽 높은 곳에서 현측 무늬와 로봇을 함께(편집본 첫 장면)
     CAMS["ship"] = cam("/World/CamShip", (-13.0, -1.5, 6.5), (1.4, 5.0, 1.4), 16.0)
+# 실시간 조종용 카메라 2대(실물의 front, wrist). 앞 카메라: 실물 자리(정면 60, 오른쪽 220, 받침 위 300 mm)를 ×4 한 시선 방향 그대로,
+# 팔이 닿지 않는 곳까지 물린다. 그 자리(×4)는 UR10e 작업 범위 안이다
+FRONT_POLE = np.array([-0.72, -1.76])
+WRIST_CAM_POS = np.array([0.17, 0.0, 0.10])  # tool0 프레임: 플러그 위(+x, 케이블 부싱은 -x), 뒤쪽
+if args.live_leader:
+    _front, _look = np.array([*FRONT_POLE, 2.60]), np.array([0.75, 0.0, 0.95])
+    cam("/World/CamFront", _front, _look, 15.0)
+    cylinder("/World/CamFrontPole", (FRONT_POLE[0], FRONT_POLE[1], 1.27), 0.04, 2.54, "pedestal")
+    box("/World/CamFrontBody", _front - (_look - _front) / np.linalg.norm(_look - _front) * 0.12, (0.2, 0.2, 0.1), "plug")  # 렌즈 뒤: 카메라가 몸통 안에 들어가면 화면이 까맣다
 
 world.reset()
 dof = [robot.get_dof_index(j) for j in JOINTS]
@@ -455,6 +475,11 @@ def attach_plug():
     UsdGeom.Xformable(plug).AddTransformOp().Set(Gf.Matrix4d(L.T.tolist()))
     base = plug.GetPath().pathString
     cylinder(base + "/Adapter", (0, 0, ADAPTER_L / 2), ADAPTER_R, ADAPTER_L, "pedestal")
+    if args.live_leader:  # 손목 카메라: 실물 손목 카메라처럼 핀과 그 앞을 함께 본다. 세로 화각 61°(실물과 같음)
+        box(base + "/WristCamBody", WRIST_CAM_POS - (0, 0, 0.05), (0.07, 0.10, 0.12), "plug")
+        box(base + "/WristCamArm", (0.12, 0, 0.05), (0.09, 0.05, 0.02), "pedestal")
+        global CAM_WRIST
+        CAM_WRIST = cam(base + "/CamWrist", WRIST_CAM_POS + (0, 0, 0.01), (0, 0, TIP_L + 0.35), 10.0, up=(1.0, 0, 0))
     if PLUG_MESH is not None:  # 그리퍼 덮개와 같은 구조의 육상전원 플러그(make_plug_mesh.py)
         for part, mat in (("body", "plug"), ("ring", "socket"), ("holes", "window"), ("pin", "pin"), ("gland", "plug")):
             mesh = UsdGeom.Mesh.Define(stage, f"{base}/{part.capitalize()}")
@@ -701,7 +726,47 @@ def episode_replay(ep_dir, seed, frames_dir=None):
     return t_ins is not None, t_ins, ep_meta
 
 
-def episode_live(source, seed, duration=0.0):
+def live_guard():
+    """충돌 방지 모델. 구의 근거: tool0 프레임에서 플러그 치수(plug_iec.npz)와 손목 카메라를 덮는다."""
+    from collision import Guard, load_spheres
+    body = [(0, 0, 0.05, 0.09), (0, 0, 0.12, 0.09), (0, 0, 0.14, 0.08)]  # 몸통 끝 z = 0.22를 넘지 않게: 넘으면 꽂힌 자세에서 소켓과 겹친다고 판정한다
+    body += [(-0.07, 0, 0.09, 0.03), (-0.12, 0, 0.05, 0.03), (-0.15, 0, 0.02, 0.03)]  # 케이블 부싱
+    body += [(*WRIST_CAM_POS, 0.08)]
+    pin = [(0, 0, z, PIN_R) for z in (0.25, 0.30, 0.35, 0.40, TIP_L - PIN_R)]
+    cyl = {"pedestal": (ROBOT_BASE[0], ROBOT_BASE[1], 0.22, ROBOT_BASE[2]), "cam_pole": (*FRONT_POLE, 0.04, 2.65)}
+    boxes = {"cabinet": (CABINET + (0, 0, 0.82), np.array([0.26, 0.36, 0.83]))}
+    ship_geom = dict(o0=SHIP_O, hull_x=HULL_X - 0.04, ent_x=ENTRANCE0[0], ent_z=ENTRANCE0[2], sock_r=OUTER_R,
+                     capture_r=CONE_TOP_R - PIN_R, bottom_x=HULL_X - CAP_T)
+    return Guard(ik.compute_forward_kinematics, load_spheres(LULA_CFG["robot_description_path"]), body, pin, cyl, boxes, ship_geom)
+
+
+def setup_two_views():
+    """GUI를 조종 화면으로: 왼쪽 앞 카메라, 오른쪽 손목 카메라, 아래 상태 줄. 나머지 패널은 숨긴다. 상태 표시 Label을 돌려준다."""
+    import omni.ui as ui  # [ISAAC]
+    from omni.kit.viewport.utility import create_viewport_window, get_active_viewport  # [ISAAC]
+    get_active_viewport().camera_path = args.live_cam
+    wrist = create_viewport_window("Wrist Camera", camera_path=CAM_WRIST)
+    wrist.viewport_api.resolution = (_cfg["width"], _cfg["height"])
+    for name in ("Stage", "Property", "Content", "Console", "Render Settings", "Layer", "Semantics Schema Editor"):
+        ui.Workspace.show_window(name, False)
+    status = ui.Window("Status", height=46)
+    with status.frame:
+        label = ui.Label("", style={"font_size": 20}, alignment=ui.Alignment.CENTER)
+    for _ in range(5):
+        app.update()
+    main = ui.Workspace.get_window("Viewport")
+    wrist.dock_in(main, ui.DockPosition.RIGHT, 0.5)
+    status.dock_in(main, ui.DockPosition.BOTTOM, 0.1)
+    for _ in range(5):
+        app.update()
+    _LIVE_UI.extend([wrist, status])  # 참조를 놓으면 창이 닫힌다
+    return label
+
+
+_LIVE_UI = []
+
+
+def episode_live(source, seed, duration=0.0, status=None):
     """리더 팔을 실시간으로 읽어 UR10e를 움직인다(episode_replay와 같은 대응, 같은 제한). 벽시계에 맞춰 돈다."""
     import time as _t
     motion = ship_motion(seed)
@@ -710,6 +775,9 @@ def episode_live(source, seed, duration=0.0):
     set_led(False)
     hold_t, t_ins, captured = 0.0, None, None
     t0 = _t.time()
+    n = n_far = n_hold = 0
+    guard = live_guard()
+    c_min, c_where, cable_min, shown = np.inf, "", np.inf, None
     print("[live] 리더 팔을 움직이세요. Ctrl+C로 끝", flush=True)
     try:
         while app.is_running() and (duration <= 0 or _t.time() - t0 < duration):
@@ -719,7 +787,7 @@ def episode_live(source, seed, duration=0.0):
             ship.set_world_pose(position=o, orientation=Rotation.from_matrix(R).as_quat()[[3, 0, 1, 2]])  # [ISAAC]
             rel, pin = source.read()
             B = socket_basis(axis)
-            g = grow(np.asarray(rel))
+            g, pin = fence(grow(np.asarray(rel)), pin, FENCE_LO, FENCE_HI, FENCE_CONE)
             if captured:
                 g, pin = np.array([0.0, 0.0, g[2]]), np.array([0.0, 0.0, -1.0])
             z = B @ np.asarray(pin)
@@ -732,15 +800,24 @@ def episode_live(source, seed, duration=0.0):
                 tgt = (pos, rot)
             a = 1.0 - np.exp(-dt / TAU_CAPTURED)
             tgt = (tgt[0] + a * (pos - tgt[0]), tgt[1] * Rotation.from_rotvec(a * (tgt[1].inv() * rot).as_rotvec()))
-            qf = tgt[1].as_quat()
-            q_ik, ok = ik.compute_inverse_kinematics("tool0", tgt[0], np.array([qf[3], qf[0], qf[1], qf[2]]), warm_start=q_goal)
-            if ok:
-                q_ik = np.asarray(q_ik)
-                qd_ff = (q_ik - q_goal) / dt if started else np.zeros(6)
-                q_goal, started = q_ik, True
+            q_ik, reached = dls_step(ik.compute_forward_kinematics, q_goal, tgt[0], tgt[1].as_matrix())
+            n_far += not reached
+            qd_ff = (q_ik - q_goal) / dt if started else np.zeros(6)
+            q_goal, started = q_ik, True
             qd_cmd = np.clip(qd_ff + KP_JOINT * (q_goal - q), -QD_MAX, QD_MAX)
             qd = qd + np.clip(qd_cmd - qd, -QDD_MAX * dt, QDD_MAX * dt)
-            q = q + qd * dt
+            q_next = q + qd * dt
+            if args.no_guard:
+                c, where = guard.clearance(q_next, o, R, bool(captured))
+                q, held = q_next, False
+            else:
+                q_new, c, where, held = guard.step(q, q_next, o, R, bool(captured), GUARD_MARGIN)
+                if held:  # 막힌 쪽으로 관절 목표가 달아나지 않게 실제 자세에서 다시 푼다
+                    n_hold += 1
+                    qd, q_goal, qd_ff = (q_new - q) / dt, q_new.copy(), np.zeros(6)
+                q = q_new
+            if c < c_min:
+                c_min, c_where = c, where
             p_t, R_t = fk_tool(q)
             rel_t = p_t + R_t[:, 2] * TIP_L - ent
             depth = -float(np.dot(rel_t, axis))
@@ -761,14 +838,21 @@ def episode_live(source, seed, duration=0.0):
                 t_ins, hold_t = None, 0.0  # 뺐다
                 set_led(False)
             update_sea(t)
-            update_cable(*cable_end(p_t, R_t))
+            pts = update_cable(*cable_end(p_t, R_t))
+            cable_min = min(cable_min, guard.cable_clearance(pts[:24], 0.0225, (ROBOT_BASE[0], ROBOT_BASE[1], 0.22, ROBOT_BASE[2])))
+            text = f"HOLD: collision guard ({where})" if held else "CONNECTED" if t_ins is not None else "Teleop"
+            if status is not None and text != shown:
+                status.text = shown = text
             robot.set_joint_positions(q, joint_indices=np.array(dof))  # [ISAAC] 운동학 재생
             world.step(render=True)  # [ISAAC]
+            n += 1
             rest = dt - (_t.time() - loop0)
             if rest > 0:
                 _t.sleep(rest)
     except KeyboardInterrupt:
         pass
+    print(f"[live] 충돌 방지 {'꺼짐' if args.no_guard else '켜짐'}: 정지 {n_hold}/{n} 프레임, 최소 여유 {c_min * 1000:.0f} mm({c_where}), 케이블과 팔, 받침의 최소 여유 {cable_min * 1000:.0f} mm", flush=True)
+    print(f"[live] 평균 {n / (_t.time() - t0):.1f} 프레임/s (목표 {args.fps}). 목표보다 낮으면 UR10e가 늦게 따라온다: --fps를 낮춘다. 목표에 못 닿은 프레임 {n_far}/{n}", flush=True)
     return t_ins
 
 
@@ -785,17 +869,19 @@ def save_frames(d, k, t, phase):
 attach_plug()
 if args.live_leader:
     sys.path.insert(0, str(HERE))
+    from collision import dls_step, fence  # noqa: E402
     from leader_source import LeaderSource  # noqa: E402
-    try:
-        from omni.kit.viewport.utility import get_active_viewport  # [ISAAC]
-        get_active_viewport().camera_path = args.live_cam
-    except Exception as e:  # 시점 바꾸기 실패해도 계속(기본 시점)
-        print("[live] 시점 설정 실패:", e)
+    status = None
+    if not args.headless:
+        try:
+            status = setup_two_views()
+        except Exception as e:  # 화면 구성에 실패해도 조종은 계속한다(기본 창)
+            print("[live] 화면 구성 실패:", e)
     robot.set_joint_positions(Q_HOME, joint_indices=np.array(dof))
     for _ in range(10):
         world.step(render=True)  # [ISAAC]
     src = LeaderSource(args.live_leader)
-    episode_live(src, args.seed, args.live_seconds)
+    episode_live(src, args.seed, args.live_seconds, status)
     src.close()
     app.close()
     sys.exit(0)

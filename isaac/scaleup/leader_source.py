@@ -11,6 +11,7 @@
 """
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -20,7 +21,8 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 J = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"]
-CAL_L = json.loads((HERE / "calib" / "plug_leader.json").read_text())
+# 다른 리더 팔(여분 팔)은 lerobot-calibrate로 만든 JSON을 LEADER_CALIB로 지정한다. 호밍 오프셋은 보정 때 모터에 저장된다
+CAL_L = json.loads(Path(os.environ.get("LEADER_CALIB", HERE / "calib" / "plug_leader.json")).read_text())
 CAL_F = json.loads((HERE / "calib" / "plug_follower.json").read_text())
 REF = json.loads((HERE / "teleop_socket_ref.json").read_text())
 
@@ -80,6 +82,7 @@ class LeaderSource:
         self.sync = GroupSyncRead(self.port, self.pk, 56, 2)  # Present_Position
         for i in range(1, 6):
             self.sync.addParam(i)
+            self.pk.write1ByteTxRx(self.port, i, 40, 0)  # Torque_Enable 끄기: 손으로 움직이는 팔이다
 
     def read(self):
         if self.fake is not None:
@@ -90,6 +93,7 @@ class LeaderSource:
             return self.fake[k][1], self.fake[k][2]
         if self.sync.txRxPacket() == self.ok:
             raw = [self.sync.getData(i, 56, 2) for i in range(1, 6)]
+            raw = [-(v & 0x7FFF) if v & 0x8000 else v for v in raw]  # Present_Position은 15번 비트가 부호다
             self.last = self.kin.rel_pin(leader_raw_to_deg(raw))
         if self.last is None:
             raise RuntimeError("리더 팔 읽기 실패(전원 5 V, 케이블, 모터 ID 1~5 확인)")
