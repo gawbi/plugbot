@@ -84,7 +84,7 @@ The predictor looks 0.3 s ahead and starts inserting only when the socket goes c
 **A. Real-to-Real.** A person moves the SO-101 leader arm and the follower copies it. 134 recorded episodes (94 static, 40 on the shaking deck) train an ACT policy (action chunking transformer) that sees two cameras and the joint state.
 
 **B. Sim-to-Real.** The same human recordings are replayed joint by joint inside an Isaac Sim copy of the photobox. Only the camera images are rendered; the joint state and actions stay real. Domain randomization (lighting, materials, camera jitter) and image corruptions (blur, noise, shake, latency) are added. The policy never sees a real photo, yet it inserts on the real arm.
-The first twin model stopped about 5 mm short of the socket. I compared real and twin frames of the inserted pose, recalibrated both virtual cameras, and re-rendered; that fixed it.
+Twin checkpoints trained longer on renders from uncalibrated cameras (10k to 20k steps) jammed the plug about 5 mm low and right of the socket, while the 5k and 7.5k checkpoints had inserted on single static tries. I compared real and twin frames of the inserted pose, recalibrated both virtual cameras, re-rendered and fine-tuned only 1k steps; that model was the one judged. Calibration and shorter training changed together, so which one mattered is not separated yet (offline analysis in progress).
 
 <img src="outputs/twin_vs_real.png" width="900" alt="Real and Isaac twin camera views of the inserted pose, side by side">
 
@@ -125,7 +125,7 @@ Design decisions:
 | `Failed to open` camera before recording | A leftover preview process still held the device | Preview runs as its own process, checked free with `fuser` before recording |
 | Side camera slowly drifted | Tape-mounted head rotated over hours | Measured per-episode image shift by phase correlation (+52 px), built an overlay tool to realign |
 | Wrist camera could not see the plug | The gripper hid the contact point | CAD gripper cover that moves the plug 52 to 58 mm forward; walls thickened 2.35 to 4.4 mm after review |
-| Twin-trained model stopped 5 mm short | Virtual cameras did not match the real ones | Calibrated both cameras against real inserted frames, re-rendered |
+| Twin-trained model jammed 5 mm low and right | Virtual cameras did not match the real ones, and longer training made it worse | Recalibrated both cameras against real inserted frames, re-rendered, fine-tuned only 1k steps |
 
 ---
 
@@ -134,7 +134,7 @@ Design decisions:
 - **Paired comparisons.** Strategies share the same wave seeds, so the 45 vs 3 count above compares outcomes on identical waves, not just averages.
 - **Uncertainty with every rate.** Success rates are reported with Wilson 95% intervals; 20/20 is stated as "at least 84%", not "always".
 - **A second physics engine.** The MuJoCo study was ported to Isaac Sim (PhysX). Predict stayed high (97% at 6 cm), but follow also reached 100%, so the predict-beats-follow result was **not** reproduced there. Swapping in the MuJoCo servo model did not change it; the root cause is still open ([`outputs/ISAAC_RESULTS.md`](outputs/ISAAC_RESULTS.md)).
-- **Sim-only overfitting.** Fine-tuning the twin policy longer made it worse on the real arm: the 1k-step checkpoint inserted, the 2k, 3k and 4k checkpoints each failed their one try. More simulator fitting moved it away from the real camera.
+- **Sim-only overfitting.** Fine-tuning the twin policy longer made it worse on the real arm: the calibrated 1k-step checkpoint inserted on all 13 static tries logged on this laptop, the 2k, 3k and 4k checkpoints each failed their one try (Fisher exact, one-sided p ≈ 0.002). The uncalibrated run showed the same shape (5k and 7.5k inserted, 10k and later missed). More simulator fitting moved it away from the real camera.
 
 ---
 

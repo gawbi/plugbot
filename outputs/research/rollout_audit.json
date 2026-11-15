@@ -1,0 +1,1336 @@
+{
+ "note": "이 노트북(data/rollouts)에 남은 실행만. 사람 판정(result.json), retro = 실행 뒤에 --mark로 붙인 판정. 판정자는 작성자 본인이고 눈가림은 없었다.",
+ "total_runs": 106,
+ "by_model_ckpt_cond": {
+  "act_real_v2/040000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 2,
+   "retro": 0,
+   "runs": [
+    "20261106_191417",
+    "20261106_191509"
+   ]
+  },
+  "act_real_v2/040000|static": {
+   "ok": 1,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 1,
+   "runs": [
+    "20261106_191627"
+   ]
+  },
+  "act_real_v3/010000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 2,
+   "retro": 0,
+   "runs": [
+    "20261106_180036",
+    "20261106_191309"
+   ]
+  },
+  "act_real_v3/020000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 1,
+   "retro": 0,
+   "runs": [
+    "20261106_191208"
+   ]
+  },
+  "act_real_v4/080000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 12,
+   "retro": 0,
+   "runs": [
+    "20261109_225243",
+    "20261109_225457",
+    "20261109_230355",
+    "20261109_233918",
+    "20261110_003455",
+    "20261110_013941",
+    "20261110_121726",
+    "20261110_121818",
+    "20261110_122020",
+    "20261110_122207",
+    "20261110_122550",
+    "20261110_122556"
+   ]
+  },
+  "act_real_v4/080000|moving": {
+   "ok": 27,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 0,
+   "runs": [
+    "20261109_225313",
+    "20261109_225405",
+    "20261109_230001",
+    "20261109_234005",
+    "20261109_234120",
+    "20261109_234455",
+    "20261109_234629",
+    "20261109_234823",
+    "20261109_235557",
+    "20261109_235939",
+    "20261110_001049",
+    "20261110_001407",
+    "20261110_001501",
+    "20261110_001609",
+    "20261110_001710",
+    "20261110_002316",
+    "20261110_002404",
+    "20261110_002450",
+    "20261110_041050",
+    "20261110_041135",
+    "20261110_041215",
+    "20261110_041305",
+    "20261110_041350",
+    "20261110_041457",
+    "20261110_041540",
+    "20261110_041622",
+    "20261110_041722"
+   ]
+  },
+  "act_real_v4/080000|static": {
+   "ok": 20,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 0,
+   "runs": [
+    "20261110_003311",
+    "20261110_003410",
+    "20261110_003548",
+    "20261110_003815",
+    "20261110_003859",
+    "20261110_003948",
+    "20261110_004033",
+    "20261110_004123",
+    "20261110_004208",
+    "20261110_004258",
+    "20261110_004342",
+    "20261110_004426",
+    "20261110_004510",
+    "20261110_004557",
+    "20261110_004643",
+    "20261110_004729",
+    "20261110_004923",
+    "20261110_005013",
+    "20261110_005113",
+    "20261110_005214"
+   ]
+  },
+  "act_twin_v1/010000|moving": {
+   "ok": 1,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 0,
+   "runs": [
+    "20261109_225729"
+   ]
+  },
+  "act_twin_v2/005000|static": {
+   "ok": 1,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 0,
+   "runs": [
+    "20261110_004839"
+   ]
+  },
+  "act_twin_v2/007500|static": {
+   "ok": 1,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 0,
+   "runs": [
+    "20261110_005715"
+   ]
+  },
+  "act_twin_v2/010000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 1,
+   "retro": 0,
+   "runs": [
+    "20261110_010716"
+   ]
+  },
+  "act_twin_v2/012500|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 1,
+   "retro": 0,
+   "runs": [
+    "20261110_012200"
+   ]
+  },
+  "act_twin_v2/015000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 3,
+   "retro": 0,
+   "runs": [
+    "20261110_013127",
+    "20261110_013831",
+    "20261110_013856"
+   ]
+  },
+  "act_twin_v2/017500|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 2,
+   "retro": 0,
+   "runs": [
+    "20261110_015848",
+    "20261110_020031"
+   ]
+  },
+  "act_twin_v2/020000|-": {
+   "ok": 0,
+   "fail": 0,
+   "unjudged": 2,
+   "retro": 0,
+   "runs": [
+    "20261110_015746",
+    "20261110_015803"
+   ]
+  },
+  "act_twin_v4/001000|moving": {
+   "ok": 13,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 0,
+   "runs": [
+    "20261110_031406",
+    "20261110_031451",
+    "20261110_035250",
+    "20261110_035333",
+    "20261110_035609",
+    "20261110_035831",
+    "20261110_035939",
+    "20261110_040433",
+    "20261110_040520",
+    "20261110_040632",
+    "20261110_040751",
+    "20261110_040840",
+    "20261110_040951"
+   ]
+  },
+  "act_twin_v4/001000|static": {
+   "ok": 13,
+   "fail": 0,
+   "unjudged": 0,
+   "retro": 9,
+   "runs": [
+    "20261110_023309",
+    "20261110_023430",
+    "20261110_023814",
+    "20261110_023858",
+    "20261110_024127",
+    "20261110_024600",
+    "20261110_024642",
+    "20261110_024729",
+    "20261110_024829",
+    "20261110_024917",
+    "20261110_030841",
+    "20261110_031208",
+    "20261110_031309"
+   ]
+  },
+  "act_twin_v4/002000|static": {
+   "ok": 0,
+   "fail": 1,
+   "unjudged": 0,
+   "retro": 1,
+   "runs": [
+    "20261110_024429"
+   ]
+  },
+  "act_twin_v4/003000|static": {
+   "ok": 0,
+   "fail": 1,
+   "unjudged": 0,
+   "retro": 1,
+   "runs": [
+    "20261110_024213"
+   ]
+  },
+  "act_twin_v4/004000|static": {
+   "ok": 0,
+   "fail": 1,
+   "unjudged": 0,
+   "retro": 1,
+   "runs": [
+    "20261110_024331"
+   ]
+  }
+ },
+ "runs": [
+  {
+   "run": "20261106_180036",
+   "model": "act_real_v3",
+   "ckpt": "010000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 734
+  },
+  {
+   "run": "20261106_191208",
+   "model": "act_real_v3",
+   "ckpt": "020000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 586
+  },
+  {
+   "run": "20261106_191309",
+   "model": "act_real_v3",
+   "ckpt": "010000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 585
+  },
+  {
+   "run": "20261106_191417",
+   "model": "act_real_v2",
+   "ckpt": "040000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 737
+  },
+  {
+   "run": "20261106_191509",
+   "model": "act_real_v2",
+   "ckpt": "040000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 734
+  },
+  {
+   "run": "20261106_191627",
+   "model": "act_real_v2",
+   "ckpt": "040000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 738
+  },
+  {
+   "run": "20261109_225243",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 2
+  },
+  {
+   "run": "20261109_225313",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261109_225405",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261109_225457",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261109_225729",
+   "model": "act_twin_v1",
+   "ckpt": "010000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261109_230001",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261109_230355",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261109_233918",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261109_234005",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 797
+  },
+  {
+   "run": "20261109_234120",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261109_234455",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261109_234629",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 806
+  },
+  {
+   "run": "20261109_234823",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261109_235557",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 798
+  },
+  {
+   "run": "20261109_235939",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_001049",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 805
+  },
+  {
+   "run": "20261110_001407",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 806
+  },
+  {
+   "run": "20261110_001501",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 806
+  },
+  {
+   "run": "20261110_001609",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 805
+  },
+  {
+   "run": "20261110_001710",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 806
+  },
+  {
+   "run": "20261110_002316",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 805
+  },
+  {
+   "run": "20261110_002404",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 799
+  },
+  {
+   "run": "20261110_002450",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 805
+  },
+  {
+   "run": "20261110_003311",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_003410",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_003455",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_003548",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_003815",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_003859",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_003948",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_004033",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_004123",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 793
+  },
+  {
+   "run": "20261110_004208",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_004258",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_004342",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_004426",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 793
+  },
+  {
+   "run": "20261110_004510",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_004557",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_004643",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 793
+  },
+  {
+   "run": "20261110_004729",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_004839",
+   "model": "act_twin_v2",
+   "ckpt": "005000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_004923",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_005013",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_005113",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_005214",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_005715",
+   "model": "act_twin_v2",
+   "ckpt": "007500",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 792
+  },
+  {
+   "run": "20261110_010716",
+   "model": "act_twin_v2",
+   "ckpt": "010000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 779
+  },
+  {
+   "run": "20261110_012200",
+   "model": "act_twin_v2",
+   "ckpt": "012500",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 779
+  },
+  {
+   "run": "20261110_013127",
+   "model": "act_twin_v2",
+   "ckpt": "015000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 778
+  },
+  {
+   "run": "20261110_013831",
+   "model": "act_twin_v2",
+   "ckpt": "015000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [
+    "--policy.n_action_steps=30"
+   ],
+   "frames": 186
+  },
+  {
+   "run": "20261110_013856",
+   "model": "act_twin_v2",
+   "ckpt": "015000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 776
+  },
+  {
+   "run": "20261110_013941",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 787
+  },
+  {
+   "run": "20261110_015746",
+   "model": "act_twin_v2",
+   "ckpt": "020000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  },
+  {
+   "run": "20261110_015803",
+   "model": "act_twin_v2",
+   "ckpt": "020000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_015848",
+   "model": "act_twin_v2",
+   "ckpt": "017500",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_020031",
+   "model": "act_twin_v2",
+   "ckpt": "017500",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 799
+  },
+  {
+   "run": "20261110_023309",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 793
+  },
+  {
+   "run": "20261110_023430",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_023814",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_023858",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_024127",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 796
+  },
+  {
+   "run": "20261110_024213",
+   "model": "act_twin_v4",
+   "ckpt": "003000",
+   "ok": false,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_024331",
+   "model": "act_twin_v4",
+   "ckpt": "004000",
+   "ok": false,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_024429",
+   "model": "act_twin_v4",
+   "ckpt": "002000",
+   "ok": false,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 795
+  },
+  {
+   "run": "20261110_024600",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 794
+  },
+  {
+   "run": "20261110_024642",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_024729",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_024829",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": true,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_024917",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_030841",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_031208",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_031309",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "static",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_031406",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_031451",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 801
+  },
+  {
+   "run": "20261110_035250",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 802
+  },
+  {
+   "run": "20261110_035333",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_035609",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_035831",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_035939",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_040433",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_040520",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_040632",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 798
+  },
+  {
+   "run": "20261110_040751",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_040840",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_040951",
+   "model": "act_twin_v4",
+   "ckpt": "001000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 800
+  },
+  {
+   "run": "20261110_041050",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_041135",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_041215",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_041305",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_041350",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_041457",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_041540",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_041622",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 804
+  },
+  {
+   "run": "20261110_041722",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": true,
+   "cond": "moving",
+   "retro": false,
+   "replan_args": [],
+   "frames": 803
+  },
+  {
+   "run": "20261110_121726",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  },
+  {
+   "run": "20261110_121818",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  },
+  {
+   "run": "20261110_122020",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  },
+  {
+   "run": "20261110_122207",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  },
+  {
+   "run": "20261110_122550",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  },
+  {
+   "run": "20261110_122556",
+   "model": "act_real_v4",
+   "ckpt": "080000",
+   "ok": null,
+   "cond": null,
+   "retro": false,
+   "replan_args": [],
+   "frames": 0
+  }
+ ]
+}
