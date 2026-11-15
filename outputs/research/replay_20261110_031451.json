@@ -1,0 +1,20 @@
+{
+ "run": "20261110_031451",
+ "ckpt": "act_twin_v4/001000",
+ "frames": 801,
+ "fps_logged": 29.6,
+ "best_chunk_start": 1,
+ "best_lag_frames": 3,
+ "mean_abs_err_units": 1.36,
+ "mean_abs_err_units_if_boundaries_shifted_50": 3.39,
+ "tip_err_mm_last25_per_chunk": [
+  26.3,
+  39.5,
+  46.2,
+  43.1,
+  39.7,
+  36.9,
+  38.3
+ ],
+ "note": "눈금은 LeRobot 관절 눈금(-100~100). 명령과 실제 관절 사이에는 서보 추종 오차와 접촉이 섞인다."
+}

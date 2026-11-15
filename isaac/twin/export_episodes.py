@@ -2,7 +2,7 @@
 
 넣는 것: 실물 상태와 동작(LeRobot 눈금 그대로, 학습 데이터에 그대로 쓴다), URDF 관절각(라디안, 트윈 재생용),
 소켓 자리는 트윈(run_twin.py)이 Isaac 팔의 꽂힌 마지막 자세로 정한다(MuJoCo를 쓰지 않는다).
-실행: ~/lerobot_env/bin/python isaac/twin/export_episodes.py [--dataset plug_static] [--out data/twin_src]
+실행: ~/lerobot_env/bin/python isaac/twin/export_episodes.py [--dataset plug_static] [--out data/twin_src] [--episodes 69-93]
 """
 
 import argparse
@@ -22,6 +22,7 @@ DEPTH = 0.031  # 꽂힌 깊이(모형), real_episode_traj.DEPTH_MODEL과 같다
 ap = argparse.ArgumentParser()
 ap.add_argument("--dataset", default="plug_static")
 ap.add_argument("--out", default=str(ROOT / "data/twin_src"))
+ap.add_argument("--episodes", default="", help="에피소드 범위 a-b(포함). 비우면 첫 메타 파일의 에피소드(예전 동작 그대로, 0~68)")
 a = ap.parse_args()
 D = Path.home() / ".cache/huggingface/lerobot/local" / a.dataset
 CAL = json.loads((ROOT / "isaac/scaleup/calib/plug_follower.json").read_text())
@@ -42,7 +43,13 @@ def to_rad(s):
 
 
 frames = pd.concat([pd.read_parquet(f) for f in sorted((D / "data").rglob("*.parquet"))]).sort_values("index")
-eps = pd.read_parquet(sorted((D / "meta/episodes").rglob("*.parquet"))[0])
+meta_files = sorted((D / "meta/episodes").rglob("*.parquet"))
+if a.episodes:  # 학습에 안 쓴 실물 에피소드(예: 69-93)를 따로 꺼낼 때. 메타 파일 전부에서 고른다
+    lo, hi = map(int, a.episodes.split("-"))
+    eps = pd.concat([pd.read_parquet(f) for f in meta_files])
+    eps = eps[(eps.episode_index >= lo) & (eps.episode_index <= hi)]
+else:
+    eps = pd.read_parquet(meta_files[0])
 summary = []
 for _, r in eps.iterrows():
     e = int(r.episode_index)

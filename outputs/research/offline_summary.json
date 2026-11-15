@@ -1,0 +1,60 @@
+{
+ "early": {
+  "window": "0.02~0.3",
+  "gap_tc_lt_tn_all": true,
+  "gap_tc_range": [
+   21.39,
+   45.84
+  ],
+  "gap_tn_range": [
+   29.26,
+   93.44
+  ],
+  "twin_real_minus_gray_median": -1.0,
+  "real_model": {
+   "real": [
+    43.8,
+    [
+     36.6,
+     51.1
+    ]
+   ],
+   "gray": [
+    81.63,
+    [
+     76.36,
+     86.68
+    ]
+   ]
+  }
+ },
+ "late": {
+  "window": "0.3~1.0",
+  "gap_tc_lt_tn_all": true,
+  "gap_tc_range": [
+   14.13,
+   24.65
+  ],
+  "gap_tn_range": [
+   21.21,
+   30.42
+  ],
+  "twin_real_minus_gray_median": 0.9,
+  "real_model": {
+   "real": [
+    10.48,
+    [
+     9.21,
+     11.84
+    ]
+   ],
+   "gray": [
+    35.72,
+    [
+     31.77,
+     39.36
+    ]
+   ]
+  }
+ }
+}

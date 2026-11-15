@@ -1,0 +1,53 @@
+{
+ "note": "정확 검정. MuJoCo는 시뮬레이션, 트윈 체크포인트는 이 노트북 실물 기록, R2R 대 S2R은 두 노트북 합산 실물 기록.",
+ "mujoco_predict_vs_follow": {
+  "4cm": {
+   "only_predict": 13,
+   "only_follow": 1,
+   "both": 86,
+   "neither": 0,
+   "mcnemar_exact_p": 0.0018310546875,
+   "predict_pct": 99.0,
+   "follow_pct": 87.0
+  },
+  "6cm": {
+   "only_predict": 45,
+   "only_follow": 3,
+   "both": 43,
+   "neither": 9,
+   "mcnemar_exact_p": 1.312585595769633e-10,
+   "predict_pct": 88.0,
+   "follow_pct": 46.0
+  },
+  "8cm": {
+   "only_predict": 40,
+   "only_follow": 4,
+   "both": 20,
+   "neither": 36,
+   "mcnemar_exact_p": 1.7051434042514302e-08,
+   "predict_pct": 60.0,
+   "follow_pct": 24.0
+  }
+ },
+ "twin_v4_1k_vs_2k_4k_static": {
+  "1k": "13/13",
+  "2k_4k": "0/3",
+  "fisher_one_sided_p": 0.0017857142857142857,
+  "fisher_two_sided_p": 0.0017857142857142857,
+  "caveat": "2천~4천은 각 1회, 판정은 실행 뒤(retro). 연속 시도, 눈가림 없음"
+ },
+ "real_r2r_vs_s2r": {
+  "r2r": "40/40",
+  "s2r": "39/40",
+  "r2r_wilson": [
+   91.2,
+   100
+  ],
+  "s2r_wilson": [
+   87.1,
+   99.6
+  ],
+  "fisher_two_sided_p": 1.0,
+  "reading": "차이를 찾지 못했다. 같다는 증거는 아니다"
+ }
+}
