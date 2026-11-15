@@ -25,6 +25,13 @@ for w, R in W.items():
         rows[name] = {"보정 후(c) 시드별": c.round(1).tolist(), "보정 전(nc) 시드별": n.round(1).tolist(),
                       "c 평균": round(float(c.mean()), 1), "nc 평균": round(float(n.mean()), 1),
                       "같은 시드 차이 c-nc": (c - n).round(1).tolist()}
+    rg = {}
+    for tag in ("c1000", "nc1000"):
+        v = np.array([R[f"ctl_{tag}_s{s}/001000"]["gt_mm_real"][0] - R[f"ctl_{tag}_s{s}/001000"]["gt_mm_gray"][0] for s in SEEDS])
+        rg[tag] = {"시드별": v.round(1).tolist(), "평균": round(float(v.mean()), 1)}
+    rows["실물 화면의 손해(실물 - 회색)"] = {"보정 후(c) 시드별": rg["c1000"]["시드별"], "보정 전(nc) 시드별": rg["nc1000"]["시드별"],
+                                     "c 평균": rg["c1000"]["평균"], "nc 평균": rg["nc1000"]["평균"],
+                                     "같은 시드 차이 c-nc": (np.array(rg["c1000"]["시드별"]) - np.array(rg["nc1000"]["시드별"])).round(1).tolist()}
     out[w] = rows
 dst = ROOT / "outputs/research/control_report.json"
 dst.write_text(json.dumps(out, ensure_ascii=False, indent=1))

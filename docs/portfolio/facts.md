@@ -16,7 +16,7 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 합계 / Totals | R2R 40/40 (91~100%), S2R 39/40 (87~100%) | 두 노트북 합산, 2026-11-09~10 선상 / two laptops combined, aboard ship | 실물 확인 | 같음 |
 | 더 학습한 트윈 모델은 실패 / longer sim training failed | v4 1천 정지 13/13(이 노트북) 대 2k, 3k, 4k 각 0/1, Fisher 정확 검정 단측 p ≈ 0.002 | 같은 데이터로 학습만 더 함. 2k~4k 판정은 실행 뒤에 붙임(retro) / same data, more steps | 실물 확인(소수) | `outputs/research/rollout_audit.json` |
 | 보정 전 트윈 모델 / uncalibrated twin (act_twin_v2) | 5천, 7,500 스텝 정지 각 1/1 성공. 1만~2만 스텝은 오른쪽 아래 약 5 mm에 박힘 | 1만~2만은 사용자 현장 관찰, 판정 파일 없음(실행 11회 기록만) | 실물 관찰 | `outputs/research/rollout_audit.json`, 대화 기록 2026-11-10 |
-| 보정과 학습 길이 / calibration vs training length | 최종 모델은 카메라 보정과 짧은 추가 학습(1천)이 함께 바뀜. 어느 쪽 효과인지 **분리 안 됨** | 오프라인 분석으로 분리 예정 | 미정 | 연구 계획 |
+| 보정과 학습 길이 / calibration vs training length | 최종 모델은 카메라 보정과 짧은 추가 학습(1천)이 함께 바뀜. 실물에서는 **분리 안 됨**. 오프라인 대조(1-2절)에서는 보정 효과가 보임 | 실물 대조 시험 남음 | 미정 | `outputs/research/control_report.json` |
 | 예측 대 따라가기 / predict vs follow, 파고 6 cm | 예측 88% (80~93), 따라가기 46% (37~56), 정지 25% (18~34) | MuJoCo, 같은 시드 1000~1099, 100회 / paired seeds, 100 trials | 시뮬레이션 | `outputs/compare_predict_follow.json` |
 | 짝 비교 / paired outcome, 6 cm | 예측만 성공 45, 따라가기만 성공 3 | 같은 파도 / same wave | 시뮬레이션 | 같음 |
 | 다른 파고 / other wave heights | 4 cm: 99 / 87 / 76%, 8 cm: 60 / 24 / 12% (예측/따라가기/정지) | 같음 | 시뮬레이션 | 같음 |
@@ -53,6 +53,7 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 | 사람 시범과의 오차는 성패 지표로 못 씀 / demo error not predictive | 트윈 정책: 실물 화면 대 회색 화면 차이 중앙값 0.9 mm(늦은 구간). 실물 화면 모델: 접근 초반 44 대 82 mm(학습에 쓴 에피소드라 참고값) | 같음 | 오프라인 | `outputs/research/offline_summary.json` |
 | 시험 때 앞 카메라 시점이 다름 / test camera view differs | 시범 녹화(plug_static, plug_train_v4)는 시점 A, 배 위 시험 실행은 시점 B(세로 약 45 px 이동, 회전과 확대도 섞임, 정확한 변환은 못 구함) | 첫 장면 비교, 위상 상관 | 오프라인 | `outputs/research/front_view_shift.png` |
 | 카메라 의존도 / camera reliance | 1초 뒤 동작 변화: 트윈 모델 손목 가림 16.8 mm, 앞 가림 8.2 mm, 앞 ±45 px 3.1~4.5 mm. 실물 모델 21.5, 18.4, 3.9~4.4 mm | 배 위 시험 실행 기록의 실제 입력(트윈 26회, 실물 47회) | 오프라인 | `outputs/research/camera_reliance.json` |
+| 보정만 다른 대조 모델 / calibration-only controls | 접근과 꽂기 구간, 실물 화면에서 사람 시범과의 차이: 보정 후 40.2 대 보정 전 45.6 mm(같은 시드 차 -5.6, -4.8, -5.6). 회색 화면 대비 실물 화면의 손해: 2.5 대 10.6 mm(같은 시드 차 -9.9, -7.6, -6.9). 접근 초반은 오차 77.9 대 83.6 mm, 손해는 섞임 | v2 2만 스텝에서 같은 증강 시드(1000)로 1천 스텝, 학습 시드 3개. 모델 `~/act_runs/ctl_{c1000,nc1000}_s*` | 오프라인 | `outputs/research/control_report.json` |
 | 기다림 조건은 효과 없음 / calm gate has no effect | 4/6/8 cm 같은 파도 300쌍에서 켬과 끔의 결과가 다른 파도 0개 | 원래 제어기 run_trial, gate_speed 무한대로 끔 | 시뮬레이션 | 대화 기록 2026-11-15, `tools/research/chunk_report.py`(재구현에서도 같음) |
 | 묶음 실행 간격 / replanning interval | 6 cm: 예측 90 → 35%, 따라가기 47 → 25%(H 0.02 → 3.3 s). 8 cm: 69 → 10%, 25 → 7% | 각본 묶음 제어기, 같은 시드 100개. H = 0.02는 기존 결과(88, 46%)와 맞음 | 시뮬레이션 | `outputs/research/chunk_study.json`, `chunk_report.json` |
 | 짝 검정 / paired tests | McNemar p: 4 cm 0.0018, 6 cm 1.3e-10, 8 cm 1.7e-8 | 같은 시드 100개 | 시뮬레이션 | `outputs/research/stats.json` |
