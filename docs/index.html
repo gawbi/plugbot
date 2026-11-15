@@ -95,7 +95,7 @@
     <p class="small muted col">작은 숫자는 Wilson 95% 신뢰구간이다. 20/20은 "항상 성공"이 아니라 "성공률 84% 이상"이라는 뜻이다. 모델은 <code>act_real_v4</code>(8만 스텝)와 <code>act_twin_v4</code>(트윈 렌더로 2만 스텝 학습한 모델을 보정 후 렌더로 1천 스텝 추가 학습)다. 원자료는 <a href="https://github.com/gawbi/plugbot/blob/main/outputs/real_results.json">real_results.json</a>에 있다.</p>
 
     <h3>시뮬레이션: 소켓을 쫓지 말고 예측한다</h3>
-    <p class="col">흔들리는 소켓에 언제 꽂아야 하는지는 MuJoCo로 따로 실험했다. 세 전략을 같은 파도에 넣었다. 정지는 처음 본 위치로 가고, 따라가기는 지금 보이는 위치를 쫓는다. 예측은 0.3초 앞을 내다보고 소켓이 잠잠할 때 꽂는다.</p>
+    <p class="col">흔들리는 소켓에 언제 꽂아야 하는지는 MuJoCo로 따로 실험했다. 세 전략을 같은 파도에 넣었다. 정지는 처음 본 위치로 가고, 따라가기는 지금 보이는 위치를 쫓는다. 예측은 카메라와 서보의 늦음을 메우려고 0.3초 앞 위치를 내다본다. 원래 설계에 있던 '잠잠할 때 기다리기'는 꺼도 같은 파도 300쌍에서 결과가 바뀌지 않아, 이점은 내다보기에서 온다.</p>
     <figure class="strip">
       <div class="strip-labels">
         <div><b>정지</b><span class="fail">실패: 소켓 밖 선체에 부딪힘</span></div>
@@ -224,6 +224,18 @@
       <li><strong>두 번째 물리 엔진.</strong> MuJoCo 실험을 Isaac Sim(PhysX)으로 옮겼다. 예측은 높게 남았지만(6 cm에서 97%) 따라가기도 100%가 나와서, 예측이 낫다는 결과는 Isaac에서 <strong>재현되지 않았다</strong>. Isaac의 서보 모델을 MuJoCo 값으로 바꿔도 같았다. 원인은 아직 찾지 못했다. 이것을 물리 엔진 갭으로 그대로 기록했고, 그래서 실물 판정을 최종 근거로 삼았다.</li>
       <li><strong>실물 조건 흔들기.</strong> MuJoCo에서 카메라 지연(0.05~0.2&nbsp;s), 잡음, 보정 오차, 서보 강성을 바꿔 보았다. 예측은 대체로 90% 이상을 지켰다(파고 4&nbsp;cm, 30회).</li>
       <li><strong>사람 판정도 기록으로.</strong> 성공 여부는 사람이 버튼으로 남기고, 숫자는 그 파일에서만 집계한다. 실물 실행 기록은 모두 106회다.</li>
+    </ul>
+  </section>
+
+  <section id="after" class="col">
+    <h2>대회 뒤 분석</h2>
+    <p>로봇 없이, 기록된 실행과 학습에 안 쓴 실물 에피소드, 시뮬레이션으로 다시 따져 본 결과다. 새 실물 숫자는 없다.</p>
+    <ul>
+      <li><strong>보정과 짧은 학습이 함께 바뀌었다.</strong> 보정 전 모델도 5천, 7,500 스텝은 꽂았고 1만 스텝부터 빗나갔다. 판정 받은 모델은 둘이 함께 바뀐 것이라, 보정만 다른 대조 모델을 학습해 실물 시험을 기다린다.</li>
+      <li><strong>보정은 정책이 느끼는 화면 간극을 줄였다.</strong> 실물 에피소드 25개에서 같은 state에 실물 화면 대신 트윈 화면을 넣으면, 보정 후 카메라 쪽 동작 차이가 트윈 체크포인트 14개 모두에서 더 작았다. 오래 학습할수록 그 차이는 커졌다(<a href="https://github.com/gawbi/plugbot/blob/main/outputs/research/offline_eval.png">그림</a>).</li>
+      <li><strong>시험 때 앞 카메라는 다른 자리였다.</strong> 그래도 꽂았다. 트윈 정책은 손목 카메라를 가리면 17&nbsp;mm, 앞 카메라를 가리면 8&nbsp;mm 동작이 바뀌어 손목 카메라에 더 기댔다(<a href="https://github.com/gawbi/plugbot/blob/main/outputs/research/front_view_shift.png">시점 비교</a>).</li>
+      <li><strong>예측의 이점은 내다보기에서 온다.</strong> 기다림 조건을 꺼도 같은 파도 300쌍의 결과가 같았다. 실물 ACT처럼 3.3초마다 다시 계획하면 6&nbsp;cm에서 예측 90% → 35%, 따라가기 47% → 25%로 떨어졌다(<a href="https://github.com/gawbi/plugbot/blob/main/outputs/research/chunk_study.png">그림</a>).</li>
+      <li><strong>통계.</strong> 예측 대 따라가기 McNemar p = 1.3e-10, 실물 트윈 1천 대 2천~4천 Fisher p = 0.002, R2R 대 S2R Fisher p = 1.0(차이 미검출).</li>
     </ul>
   </section>
 

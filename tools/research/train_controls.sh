@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source act/env.sh
 BASE="$HOME/act_runs/act_twin_v2/checkpoints/020000/pretrained_model"
-for DS in plug_twin_c1000 plug_twin_nc1000; do
+for DS in ${DSS:-plug_twin_c1000 plug_twin_nc1000}; do
   for SEED in 1000 2000 3000; do
     OUT="$HOME/act_runs/ctl_${DS#plug_twin_}_s${SEED}"
     [ -e "$OUT/checkpoints/001000" ] && { echo "있음: $OUT"; continue; }

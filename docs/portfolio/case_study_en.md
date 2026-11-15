@@ -24,7 +24,7 @@ So the question was: **can a cheap robot arm learn to plug into a moving socket 
 - **A. Real-to-Real.** A person moves the SO-101 leader arm and the follower arm copies it. 134 recorded demonstrations (94 on a static socket, 40 on the shaking deck) train an ACT policy, which sees two cameras (front and wrist) plus the joint state and outputs the next chunk of actions.
 - **B. Sim-to-Real.** The same human demonstrations are replayed joint by joint inside an Isaac Sim copy of the photobox (a digital twin), and only the camera images are rendered. Joint states and actions stay real; only the pixels are simulated. Lighting, materials and camera pose are randomized, and blur, noise and latency are added. This policy never sees a real photo, and it inserts on the real arm.
 - **C. Heterogeneous teleoperation (simulation).** The small leader arm drives a full-size UR10e at a ferry-side socket in Isaac Sim: the pose is taken relative to the socket, scaled by 5 and solved with Lula IK. It shows how the same demonstrations could drive an industrial arm. It is a visualization, not trained and not on real hardware.
-- **D. When to insert (simulation study).** In MuJoCo, three strategies (static, follow, predict: look 0.3 s ahead and insert when the socket goes calm) are compared on identical waves.
+- **D. When to insert (simulation study).** In MuJoCo, three strategies (static, follow, predict: forecast the socket 0.3 s ahead; its calm-window gate changed no outcome when switched off) are compared on identical waves.
 
 ## 3. System architecture
 
@@ -98,6 +98,15 @@ All 19 incidents are logged with cause and fix in `docs/troubleshooting.md`.
 - **A second physics engine.** The MuJoCo study was ported to Isaac Sim (PhysX). Predict stayed high (97% at 6 cm), but follow reached 100% too, so predict-beats-follow was **not reproduced** in Isaac. Swapping in the MuJoCo servo model did not change it, and the root cause is still open. I recorded this as a physics-engine gap and made the real-robot judgement the final evidence.
 - **Stress-testing real-world conditions.** In MuJoCo, camera latency (0.05 to 0.2 s), noise, calibration error and servo stiffness were varied; predict mostly stayed above 90% (4 cm waves, 30 trials).
 - **Human judgement as a record.** Success is a person's button press saved to a file, and every number is tallied from those files: 106 logged real runs.
+
+## 6-1. After the hackathon: what the logs and simulations say
+
+No new real-robot numbers here; these come from logged runs, held-out real episodes and simulation (`tools/research/`, `outputs/research/`).
+- **Calibration and shorter training changed together.** Uncalibrated twin checkpoints at 5k and 7.5k steps had inserted on single static tries; from 10k steps they missed. The judged model changed both camera calibration and training length (1k-step fine-tune), so the two effects are not yet separated. Control fine-tunes that differ only in calibration are trained and wait for a real-robot test.
+- **Calibration shrinks the gap the policy sees.** On 25 real episodes the twin never saw, swapping the real image for a re-rendered twin image at the same state changed the 1 s action less with calibrated cameras than with uncalibrated ones, for all 14 twin checkpoints. Within a run the gap grows with training length (rank correlation 0.76 to 0.95 for v2), a sign of fitting the renders.
+- **The test camera was not the training camera.** The front camera aboard the ship sat in a different pose from the demonstration recordings ([figure](outputs/research/front_view_shift.png)). Both policies still inserted. Masking inputs on the logged test runs, the twin policy changed its action 17 mm without the wrist camera and 8 mm without the front camera; shifting the front image 45 px changed it 3 to 5 mm.
+- **Prediction helps by looking ahead, not by waiting.** Switching off the calm-window gate changed no outcome on 300 paired MuJoCo waves. Executing plans open-loop for longer cuts the gain: at 6 cm, replanning every step gives predict 90% and follow 47%; replanning every 3.3 s, like the real ACT chunks, gives 35% and 25% ([figure](outputs/research/chunk_study.png)).
+- **Statistics.** Predict vs follow: McNemar p = 1.3e-10 (6 cm). Twin 1k vs 2k to 4k on the real arm: 13/13 vs 0/3, Fisher p = 0.002. Real-to-Real 40/40 vs Sim-to-Real 39/40: Fisher p = 1.0, no detectable difference (not equivalence).
 
 ## 7. Limitations and next research
 

@@ -70,7 +70,7 @@ Measured aboard the ship on 2026-11-09 and 11-10, two laptops combined. Models: 
 | 8 cm | 12% | 24% | **60%** | 40 / 4 |
 
 MuJoCo, 100 trials per cell, seeds 1000 to 1099 shared across the three strategies, so every comparison is on the same wave.
-The predictor looks 0.3 s ahead and starts inserting only when the socket goes calm. It also hits the socket far less (contact force p95 about 37 N vs 311 N, rigid-contact model, compare only). This controller exists in simulation; the real ACT policy does not use it yet.
+The predictor forecasts the socket 0.3 s ahead to cancel camera and servo lag. Its calm-window gate turned out not to matter (switching it off changed no outcome on 300 paired waves), so the gain comes from the forecast. It also hits the socket far less (contact force p95 about 37 N vs 311 N, rigid-contact model, compare only). This controller exists in simulation; the real ACT policy does not use it yet.
 
 ---
 
@@ -137,6 +137,15 @@ Design decisions:
 - **Sim-only overfitting.** Fine-tuning the twin policy longer made it worse on the real arm: the calibrated 1k-step checkpoint inserted on all 13 static tries logged on this laptop, the 2k, 3k and 4k checkpoints each failed their one try (Fisher exact, one-sided p ≈ 0.002). The uncalibrated run showed the same shape (5k and 7.5k inserted, 10k and later missed). More simulator fitting moved it away from the real camera.
 
 ---
+
+## After the hackathon: what the logs and simulations say
+
+No new real-robot numbers here; these come from logged runs, held-out real episodes and simulation (`tools/research/`, `outputs/research/`).
+- **Calibration and shorter training changed together.** Uncalibrated twin checkpoints at 5k and 7.5k steps had inserted on single static tries; from 10k steps they missed. The judged model changed both camera calibration and training length (1k-step fine-tune), so the two effects are not yet separated. Control fine-tunes that differ only in calibration are trained and wait for a real-robot test.
+- **Calibration shrinks the gap the policy sees.** On 25 real episodes the twin never saw, swapping the real image for a re-rendered twin image at the same state changed the 1 s action less with calibrated cameras than with uncalibrated ones, for all 14 twin checkpoints. Within a run the gap grows with training length (rank correlation 0.76 to 0.95 for v2), a sign of fitting the renders.
+- **The test camera was not the training camera.** The front camera aboard the ship sat in a different pose from the demonstration recordings ([figure](outputs/research/front_view_shift.png)). Both policies still inserted. Masking inputs on the logged test runs, the twin policy changed its action 17 mm without the wrist camera and 8 mm without the front camera; shifting the front image 45 px changed it 3 to 5 mm.
+- **Prediction helps by looking ahead, not by waiting.** Switching off the calm-window gate changed no outcome on 300 paired MuJoCo waves. Executing plans open-loop for longer cuts the gain: at 6 cm, replanning every step gives predict 90% and follow 47%; replanning every 3.3 s, like the real ACT chunks, gives 35% and 25% ([figure](outputs/research/chunk_study.png)).
+- **Statistics.** Predict vs follow: McNemar p = 1.3e-10 (6 cm). Twin 1k vs 2k to 4k on the real arm: 13/13 vs 0/3, Fisher p = 0.002. Real-to-Real 40/40 vs Sim-to-Real 39/40: Fisher p = 1.0, no detectable difference (not equivalence).
 
 ## Repository map
 

@@ -95,7 +95,7 @@
     <p class="small muted col">The small numbers are Wilson 95% intervals: 20/20 means "at least 84%", not "always". Models: <code>act_real_v4</code> (80k steps) and <code>act_twin_v4</code> (a 20k-step model trained on twin renders, fine-tuned 1k steps on renders from the recalibrated cameras). Raw numbers: <a href="https://github.com/gawbi/plugbot/blob/main/outputs/real_results.json">real_results.json</a>.</p>
 
     <h3>Simulation: predict the socket, do not chase it</h3>
-    <p class="col">When to insert into a moving socket was studied separately in MuJoCo, with three strategies on the same waves. Static goes to where it first saw the socket. Follow chases where the socket is now. Predict looks 0.3&nbsp;s ahead and inserts when the socket goes calm.</p>
+    <p class="col">When to insert into a moving socket was studied separately in MuJoCo, with three strategies on the same waves. Static goes to where it first saw the socket. Follow chases where the socket is now. Predict forecasts the socket 0.3&nbsp;s ahead to cancel camera and servo lag. The calm-window gate in the original design changed no outcome on 300 paired waves when switched off, so the gain comes from looking ahead.</p>
     <figure class="strip">
       <div class="strip-labels">
         <div><b>Static</b><span class="fail">Fail: hit the hull outside the socket</span></div>
@@ -224,6 +224,18 @@
       <li><strong>A second physics engine.</strong> The MuJoCo study was ported to Isaac Sim (PhysX). Predict stayed high (97% at 6&nbsp;cm), but follow reached 100% too, so predict-beats-follow was <strong>not reproduced</strong> in Isaac. Swapping in the MuJoCo servo model did not change it, and the root cause is still open. I recorded this as a physics-engine gap and made the real-robot judgement the final evidence.</li>
       <li><strong>Stress-testing real-world conditions.</strong> In MuJoCo, camera latency (0.05 to 0.2&nbsp;s), noise, calibration error and servo stiffness were varied; predict mostly stayed above 90% (4&nbsp;cm waves, 30 trials).</li>
       <li><strong>Human judgement as a record.</strong> Success is a person's button press saved to a file, and every number is tallied from those files: 106 logged real runs.</li>
+    </ul>
+  </section>
+
+  <section id="after" class="col">
+    <h2>After the hackathon</h2>
+    <p>Re-examined without the robot, from logged runs, held-out real episodes and simulation. No new real-robot numbers.</p>
+    <ul>
+      <li><strong>Calibration and shorter training changed together.</strong> Uncalibrated checkpoints at 5k and 7.5k steps had inserted; from 10k they missed. The judged model changed both, so control models that differ only in calibration are trained and wait for a real-robot test.</li>
+      <li><strong>Calibration shrinks the gap the policy sees.</strong> On 25 held-out real episodes, swapping the real image for a twin image at the same state changed the action less with calibrated cameras, for all 14 twin checkpoints; the gap grew with training length (<a href="https://github.com/gawbi/plugbot/blob/main/outputs/research/offline_eval.png">figure</a>).</li>
+      <li><strong>The test camera was not the training camera.</strong> Both policies still inserted. The twin policy changed its action 17&nbsp;mm without the wrist camera and 8&nbsp;mm without the front camera (<a href="https://github.com/gawbi/plugbot/blob/main/outputs/research/front_view_shift.png">views</a>).</li>
+      <li><strong>Prediction helps by looking ahead, not by waiting.</strong> Switching off the calm gate changed no outcome on 300 paired waves. Replanning only every 3.3&nbsp;s, like the real ACT, cut predict from 90% to 35% and follow from 47% to 25% at 6&nbsp;cm (<a href="https://github.com/gawbi/plugbot/blob/main/outputs/research/chunk_study.png">figure</a>).</li>
+      <li><strong>Statistics.</strong> Predict vs follow McNemar p = 1.3e-10; twin 1k vs 2k to 4k on the real arm Fisher p = 0.002; Real-to-Real vs Sim-to-Real Fisher p = 1.0 (no detectable difference).</li>
     </ul>
   </section>
 

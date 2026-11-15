@@ -44,6 +44,20 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 - 흔들림 갑판: 기본 정현파 12 mm, 주기 2.5 s(`act/deck_shaker.py`). [세게 흔들기]는 16 mm. 실행마다 어떤 설정이었는지는 기록되지 않았다.
 - act_twin_v4는 정지 시범(plug_static 0~68)만으로 학습했다.
 
+## 1-2. 대회 뒤 분석 / After-hackathon analysis (2026-11-15, 오프라인과 시뮬레이션, 새 실물 숫자 없음)
+| 주장 / Claim | 숫자 / Number | 조건 / Conditions | 상태 | 출처 / Source |
+|---|---|---|---|---|
+| 재생 확인 / replay check | 다시 계산한 묶음과 실제 관절 평균 차 1.36 눈금(경계를 반 묶음 어긋나게 두면 3.39), 묶음 시작 1, 지연 3프레임 | 실행 20261110_031451(act_twin_v4 1천, 흔들림 성공) | 오프라인 | `outputs/research/replay_20261110_031451.json` |
+| 보정이 짝 차이를 줄임 / calibration shrinks paired gap | 트윈 체크포인트 14개 모두 보정 후 < 보정 전. 접근과 꽂기 구간 14~25 mm 대 21~34 mm, 접근 초반 21~46 mm 대 29~93 mm | 학습에 안 쓴 실물 에피소드 25개(plug_static 69~93), 같은 state, 1초 뒤 핀 끝, 에피소드 부트스트랩 | 오프라인 | `outputs/research/offline_eval.json`, `offline_eval_early.json` |
+| 오래 학습하면 짝 차이가 커짐 / gap grows with training | 스피어만 순위 상관 v2 0.76~0.95, v4 0.25~0.9 | 점 8개(v2), 5개(v4). 경향으로만 | 오프라인 | 같음 |
+| 사람 시범과의 오차는 성패 지표로 못 씀 / demo error not predictive | 트윈 정책: 실물 화면 대 회색 화면 차이 중앙값 0.9 mm(늦은 구간). 실물 화면 모델: 접근 초반 44 대 82 mm(학습에 쓴 에피소드라 참고값) | 같음 | 오프라인 | `outputs/research/offline_summary.json` |
+| 시험 때 앞 카메라 시점이 다름 / test camera view differs | 시범 녹화(plug_static, plug_train_v4)는 시점 A, 배 위 시험 실행은 시점 B(세로 약 45 px 이동, 회전과 확대도 섞임, 정확한 변환은 못 구함) | 첫 장면 비교, 위상 상관 | 오프라인 | `outputs/research/front_view_shift.png` |
+| 카메라 의존도 / camera reliance | 1초 뒤 동작 변화: 트윈 모델 손목 가림 16.8 mm, 앞 가림 8.2 mm, 앞 ±45 px 3.1~4.5 mm. 실물 모델 21.5, 18.4, 3.9~4.4 mm | 배 위 시험 실행 기록의 실제 입력(트윈 26회, 실물 47회) | 오프라인 | `outputs/research/camera_reliance.json` |
+| 기다림 조건은 효과 없음 / calm gate has no effect | 4/6/8 cm 같은 파도 300쌍에서 켬과 끔의 결과가 다른 파도 0개 | 원래 제어기 run_trial, gate_speed 무한대로 끔 | 시뮬레이션 | 대화 기록 2026-11-15, `tools/research/chunk_report.py`(재구현에서도 같음) |
+| 묶음 실행 간격 / replanning interval | 6 cm: 예측 90 → 35%, 따라가기 47 → 25%(H 0.02 → 3.3 s). 8 cm: 69 → 10%, 25 → 7% | 각본 묶음 제어기, 같은 시드 100개. H = 0.02는 기존 결과(88, 46%)와 맞음 | 시뮬레이션 | `outputs/research/chunk_study.json`, `chunk_report.json` |
+| 짝 검정 / paired tests | McNemar p: 4 cm 0.0018, 6 cm 1.3e-10, 8 cm 1.7e-8 | 같은 시드 100개 | 시뮬레이션 | `outputs/research/stats.json` |
+| 갑판 진폭 / deck amplitude | 기록에서 잴 수 없음(앞 카메라가 갑판과 함께 움직임). 주기 약 2.47 s가 흔들림 실행 40회 중 22회에서 잡힘 | 앞 카메라 소켓 추적 | 오프라인 | `outputs/research/deck_motion.json` |
+
 ## 2. 쓰면 안 되는 말 / Do not claim
 - 실물 산업용 로봇(UR10e)으로 했다 / ran on a real industrial robot → **Isaac 시뮬레이션만**
 - UR10e가 학습했다 / UR10e learned → 조종과 재생만 / teleop and replay only
@@ -52,6 +66,8 @@ Every number in the portfolio (README, web page, PDF, résumé) comes from this 
 - 흔들려도 95% 등 표에 없는 숫자 / any number not in this sheet
 - 실제 배에서 꽂았다 → 배 **위에서** 흔들림 갑판(모형)으로 시험했다 / tested on a model shaking deck aboard the ship
 - 카메라 보정이 Sim-to-Real을 해결했다(단독 원인) → 보정과 짧은 학습이 **함께** 바뀌었다 / calibration and shorter training changed together
+- 예측은 잠잠할 때 기다려서 낫다 → 기다림 조건은 결과를 바꾸지 않았다. 이점은 0.3초 내다보기에서 온다 / gain comes from the forecast, not from waiting
+- 보정이 시험 때 카메라에 맞춰져 있었다 → 보정은 녹화 때 시점 A에 맞췄고, 시험 때는 시점 B였다
 - R2R과 S2R이 같다 → 40/40 대 39/40은 **차이를 찾지 못한 것**(Fisher p = 1.0)이지 같음의 증거가 아니다
 
 ## 3. 타임라인 / Timeline
