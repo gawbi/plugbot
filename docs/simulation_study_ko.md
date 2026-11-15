@@ -1,4 +1,4 @@
-<!-- 본선 전(2026-11-07) 시뮬레이션 연구 기록. 카메라(D435), 갑판(MG996R, 아두이노) 등 하드웨어 설명은 그때 계획이다. 최종 시스템은 ../README.md, ../README.ko.md -->
+<!-- 본선 전(2026-11-07) 시뮬레이션 연구 기록. 카메라(D435), 갑판(MG996R, 아두이노) 등 하드웨어 설명은 그때 계획이다. 최종 시스템은 ../README.md -->
 
 <div align="center">
 
@@ -10,9 +10,9 @@
 
 2026 동남권 멀티도메인 모빌리티 비즈니스 해커톤 본선 공동 2위, (재)부산테크노파크 원장상 수상 (107팀 참가)
 
-[![Award](https://img.shields.io/badge/2026_%EB%8F%99%EB%82%A8%EA%B6%8C_%ED%95%B4%EC%BB%A4%ED%86%A4-%EB%B3%B8%EC%84%A0_%EA%B3%B5%EB%8F%99_2%EC%9C%84-c9a227)](../README.ko.md)
-[![Prize](https://img.shields.io/badge/%28%EC%9E%AC%29%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC-%EC%9B%90%EC%9E%A5%EC%83%81-c9a227)](../README.ko.md)
-[![Final](https://img.shields.io/badge/%EB%B3%B8%EC%84%A0-2026.11.8~11.10_%EB%B6%80%EC%82%B0~%EC%98%A4%EC%82%AC%EC%B9%B4_%EC%84%A0%EC%83%81-1a8a5c)](../README.ko.md)
+[![Award](https://img.shields.io/badge/2026_%EB%8F%99%EB%82%A8%EA%B6%8C_%ED%95%B4%EC%BB%A4%ED%86%A4-%EB%B3%B8%EC%84%A0_%EA%B3%B5%EB%8F%99_2%EC%9C%84-c9a227)](../README.md)
+[![Prize](https://img.shields.io/badge/%28%EC%9E%AC%29%EB%B6%80%EC%82%B0%ED%85%8C%ED%81%AC%EB%85%B8%ED%8C%8C%ED%81%AC-%EC%9B%90%EC%9E%A5%EC%83%81-c9a227)](../README.md)
+[![Final](https://img.shields.io/badge/%EB%B3%B8%EC%84%A0-2026.11.8~11.10_%EB%B6%80%EC%82%B0~%EC%98%A4%EC%82%AC%EC%B9%B4_%EC%84%A0%EC%83%81-1a8a5c)](../README.md)
 <br>
 ![MuJoCo](https://img.shields.io/badge/MuJoCo-3.17-2b6cb0)
 ![Isaac Sim](https://img.shields.io/badge/NVIDIA_Isaac_Sim-5.1-76b900)
